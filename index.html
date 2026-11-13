@@ -1,0 +1,1636 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="theme-color" content="#d1d5db" />
+  <title>Checklist de Ingreso de Turno | SCADA ERNC</title>
+
+  <!-- Google Fonts: Inter & JetBrains Mono -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600;700&display=swap" rel="stylesheet">
+
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'system-ui', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace'],
+          }
+        }
+      }
+    }
+  </script>
+
+  <!-- Alpine.js & Collapse Plugin -->
+  <script defer src="https://cdn.jsdelivr.net/npm/@alpinejs/collapse@3.x.x/dist/cdn.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+
+  <style>
+    [x-cloak] { display: none !important; }
+
+    /* Fondo gris con líneas negras tipo plano / HMI SCADA */
+    body {
+      background-color: #d1d5db;
+      background-image:
+        linear-gradient(to bottom, rgba(0, 0, 0, 0.18) 1px, transparent 1px),
+        linear-gradient(to right, rgba(0, 0, 0, 0.18) 1px, transparent 1px);
+      background-size: 24px 24px;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    /* Custom Scrollbar */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #d1d5db;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #111827;
+      border-radius: 9999px;
+    }
+
+    /* Checkmark Pop Effect */
+    @keyframes checkPop {
+      0% { transform: scale(0.75); }
+      55% { transform: scale(1.18); }
+      100% { transform: scale(1); }
+    }
+    .animate-check-pop {
+      animation: checkPop 0.25s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+    }
+
+    @media print {
+      body {
+        background: #ffffff !important;
+      }
+      .no-print {
+        display: none !important;
+      }
+    }
+  </style>
+</head>
+
+<body class="text-blue-900 antialiased selection:bg-blue-700 selection:text-white min-h-screen flex flex-col"
+      x-data="scadaChecklist()"
+      x-init="initApp()">
+
+  <!-- ================= STICKY HEADER & PROGRESS BAR ================= -->
+  <header class="sticky top-0 z-40 bg-gray-300/95 backdrop-blur-md border-b-2 border-black shadow-md">
+    <div class="max-w-2xl mx-auto px-3.5 pt-3 pb-2.5">
+
+      <!-- Top Status Row -->
+      <div class="flex items-center justify-between gap-2 mb-2">
+        <div class="flex items-center gap-2">
+          <span class="relative flex h-2.5 w-2.5">
+            <span class="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75"
+                  :class="progressPercent === 100 ? 'bg-green-600' : 'bg-blue-700'"></span>
+            <span class="relative inline-flex rounded-full h-2.5 w-2.5 border border-black"
+                  :class="progressPercent === 100 ? 'bg-green-600' : 'bg-blue-700'"></span>
+          </span>
+          <span class="font-mono text-[11px] uppercase tracking-widest text-blue-900 font-bold">
+            SCADA • DESPACHO ERNC
+          </span>
+        </div>
+
+        <!-- Live Date/Time Display -->
+        <div class="flex items-center gap-1.5 bg-gray-200 border border-black rounded-lg px-2.5 py-1 font-mono text-xs text-blue-900 font-semibold shadow-sm">
+          <svg class="w-3.5 h-3.5 text-blue-800 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+          </svg>
+          <span x-text="currentDate"></span>
+          <span class="text-black font-bold">|</span>
+          <span class="text-blue-800 font-bold" x-text="currentTime"></span>
+        </div>
+      </div>
+
+      <!-- Main Title & Reference Config Trigger -->
+      <div class="flex items-center justify-between gap-2 mb-2.5">
+        <div>
+          <h1 class="text-lg sm:text-xl font-extrabold tracking-tight text-blue-900 leading-tight">
+            Checklist de Ingreso de Turno
+          </h1>
+          <p class="text-xs font-medium text-blue-800">
+            Control y Despacho de Carga • Solar, Eólica y BESS
+          </p>
+        </div>
+
+        <div class="flex items-center gap-1.5 no-print shrink-0">
+          <!-- Botón Historial Integrado -->
+          <button @click="openHistoryModal = true"
+                  type="button"
+                  title="Ver Historial de Turnos Guardados"
+                  class="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-bold bg-white hover:bg-gray-100 text-blue-900 border border-black active:scale-95 transition shadow-sm">
+            <span>📜 Historial</span>
+            <span class="font-mono text-[11px] px-1.5 py-0.5 rounded bg-gray-200 border border-black"
+                  x-text="shiftHistory.length"></span>
+          </button>
+
+          <!-- Botón Tabla MW -->
+          <button @click="openParksModal = true"
+                  type="button"
+                  title="Configurar Parques y MW de referencia"
+                  class="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-bold bg-gray-200 hover:bg-gray-100 text-blue-900 border border-black active:scale-95 transition shadow-sm">
+            <svg class="w-4 h-4 text-blue-800" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
+              <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+            </svg>
+            <span>Tabla MW</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Dynamic Progress Bar -->
+      <div class="bg-gray-200 border border-black rounded-xl p-2.5 shadow-sm">
+        <div class="flex items-center justify-between text-xs mb-1.5">
+          <div class="flex items-center gap-2">
+            <span class="font-bold text-blue-900">Progreso de Revisión</span>
+            <span x-show="progressPercent === 100"
+                  x-cloak
+                  class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-green-100 text-green-800 border border-black">
+              ✓ Turno Verificado
+            </span>
+          </div>
+          <div class="font-mono font-bold text-sm text-blue-900">
+            <span x-text="completedCount"></span>/<span x-text="totalCount"></span>
+            <span class="text-xs ml-1">(<span x-text="progressPercent"></span>%)</span>
+          </div>
+        </div>
+
+        <div class="w-full h-3.5 bg-white rounded-full overflow-hidden border border-black p-0.5">
+          <div class="h-full rounded-full transition-all duration-300 ease-out"
+               :class="progressPercent === 100
+                 ? 'bg-green-600'
+                 : 'bg-blue-700'"
+               :style="`width: ${progressPercent}%`">
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </header>
+
+  <!-- ================= MAIN CONTENT CONTAINER ================= -->
+  <main class="flex-1 max-w-2xl w-full mx-auto px-3.5 py-4 space-y-4">
+
+    <!-- OPERATOR & QUICK CONTROLS PANEL -->
+    <section class="bg-gray-200 border-2 border-black rounded-2xl p-3.5 shadow-md">
+      <div class="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5">
+        <div class="relative flex-1">
+          <input type="text"
+                 x-model="operatorName"
+                 @input="saveState()"
+                 placeholder="Nombre del Operador de Turno (opcional)..."
+                 class="w-full bg-white border border-black focus:border-blue-800 rounded-xl px-3 py-2 text-xs sm:text-sm font-semibold text-blue-900 placeholder-blue-400 focus:outline-none transition" />
+        </div>
+
+        <div class="flex items-center gap-1.5 no-print">
+          <!-- Filter Pending Only Toggle -->
+          <button type="button"
+                  @click="showOnlyPending = !showOnlyPending"
+                  class="flex-1 sm:flex-initial px-3 py-2 rounded-xl text-xs font-bold border border-black transition active:scale-95 flex items-center justify-center gap-1.5"
+                  :class="showOnlyPending
+                    ? 'bg-blue-800 text-white'
+                    : 'bg-gray-100 text-blue-900 hover:bg-white'">
+            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"/>
+            </svg>
+            <span x-text="showOnlyPending ? 'Viendo Pendientes' : 'Filtrar Pendientes'"></span>
+          </button>
+
+          <!-- Expand / Collapse All -->
+          <button type="button"
+                  @click="toggleAllAccordions()"
+                  class="px-3 py-2 rounded-xl text-xs font-bold bg-gray-100 border border-black text-blue-900 hover:bg-white active:scale-95 transition">
+            <span x-text="allExpanded ? 'Contraer Todo' : 'Expandir Todo'"></span>
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= 6 KEY REVIEW ACCORDION SECTIONS ================= -->
+
+    <!-- SECTION 1: CONSIGNAS DE POTENCIA ACTIVA (SOLAR Y EÓLICA) -->
+    <section class="bg-gray-200 border-2 border-black rounded-2xl overflow-hidden shadow-md">
+
+      <!-- Accordion Header -->
+      <div class="p-3.5 flex items-center justify-between gap-2 cursor-pointer select-none bg-gray-300 hover:bg-gray-200 transition"
+           @click="openSections.s1 = !openSections.s1">
+        <div class="flex items-center gap-3 min-w-0">
+          <div class="w-10 h-10 rounded-xl flex items-center justify-center font-mono font-extrabold text-sm shrink-0 border-2 border-black"
+               :class="getSectionProgress('p_activa').done === getSectionProgress('p_activa').total
+                 ? 'bg-white text-green-700'
+                 : 'bg-white text-blue-900'">
+            01
+          </div>
+          <div class="min-w-0">
+            <h2 class="font-extrabold text-sm sm:text-base text-blue-900 truncate">
+              Consignas de Potencia Activa (MW)
+            </h2>
+            <p class="text-xs font-medium text-blue-800 truncate">
+              Parques Solares (PFV) y Eólicos (PE) • Tabla de Referencia
+            </p>
+          </div>
+        </div>
+
+        <div class="flex items-center gap-2 shrink-0">
+          <span class="font-mono text-xs font-bold px-2.5 py-1 rounded-lg border border-black bg-white text-blue-900">
+            <span x-text="getSectionProgress('p_activa').done"></span>/<span x-text="getSectionProgress('p_activa').total"></span>
+          </span>
+          <svg class="w-5 h-5 text-blue-900 transition-transform duration-200"
+               :class="openSections.s1 ? 'rotate-180' : ''"
+               fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/>
+          </svg>
+        </div>
+      </div>
+
+      <!-- Accordion Body -->
+      <div x-show="openSections.s1" x-collapse class="border-t-2 border-black p-3 space-y-3 bg-gray-200">
+
+        <!-- Sub-toolbar: Filter Solar / Eólica + Mark All Section -->
+        <div class="flex flex-wrap items-center justify-between gap-2 bg-gray-300 p-2 rounded-xl border border-black">
+          <div class="flex items-center gap-1">
+            <button type="button"
+                    @click="techFilterP = 'ALL'"
+                    class="px-2.5 py-1 rounded-lg text-xs font-bold border transition"
+                    :class="techFilterP === 'ALL' ? 'bg-blue-800 text-white border-black' : 'bg-gray-100 text-blue-900 border-black hover:bg-white'">
+              Todos (<span x-text="parks.length"></span>)
+            </button>
+            <button type="button"
+                    @click="techFilterP = 'SOLAR'"
+                    class="px-2.5 py-1 rounded-lg text-xs font-bold border transition"
+                    :class="techFilterP === 'SOLAR' ? 'bg-blue-800 text-white border-black' : 'bg-gray-100 text-blue-900 border-black hover:bg-white'">
+              ☀️ Solar (<span x-text="parks.filter(p => p.type === 'SOLAR').length"></span>)
+            </button>
+            <button type="button"
+                    @click="techFilterP = 'EOLICA'"
+                    class="px-2.5 py-1 rounded-lg text-xs font-bold border transition"
+                    :class="techFilterP === 'EOLICA' ? 'bg-blue-800 text-white border-black' : 'bg-gray-100 text-blue-900 border-black hover:bg-white'">
+              💨 Eólica (<span x-text="parks.filter(p => p.type === 'EOLICA').length"></span>)
+            </button>
+          </div>
+
+          <div class="flex items-center gap-2">
+            <button type="button"
+                    @click="openParksModal = true"
+                    class="text-[11px] font-mono font-bold text-blue-900 hover:underline px-2 py-1">
+              ⚙️ Editar MW
+            </button>
+            <button type="button"
+                    @click="toggleEntireSection('p_activa')"
+                    class="text-xs font-bold px-2.5 py-1 rounded-lg bg-white hover:bg-gray-100 text-blue-900 border border-black transition active:scale-95">
+              Marcar todos
+            </button>
+          </div>
+        </div>
+
+        <!-- Parks Checklist Grid -->
+        <div class="space-y-2">
+          <template x-for="park in filteredParks(techFilterP, 'p_activa')" :key="'pa_' + park.id">
+            <div @click="toggleCheck('p_activa_' + park.id)"
+                 class="group relative flex items-center justify-between gap-3 p-3 rounded-xl border border-black transition-all cursor-pointer select-none active:scale-[0.99]"
+                 :class="isChecked('p_activa_' + park.id)
+                   ? 'bg-gray-300/90'
+                   : 'bg-gray-100 hover:bg-white'">
+
+              <!-- Left: White Checkbox with Green Tick + Blue Park Info -->
+              <div class="flex items-center gap-3 min-w-0 flex-1">
+                <div class="w-7 h-7 rounded-lg flex items-center justify-center bg-white border-2 border-black transition-all shrink-0 shadow-sm"
+                     :class="isChecked('p_activa_' + park.id) ? 'animate-check-pop' : ''">
+                  <svg x-show="isChecked('p_activa_' + park.id)" class="w-5 h-5 text-green-600 stroke-[3.5]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/>
+                  </svg>
+                </div>
+
+                <div class="min-w-0 flex-1">
+                  <div class="flex items-center gap-2 flex-wrap">
+                    <span class="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded border border-black bg-white text-blue-900"
+                          x-text="park.type === 'SOLAR' ? '☀️ PFV' : '💨 PE'"></span>
+                    <span class="font-bold text-sm sm:text-base transition text-blue-900"
+                          :class="isChecked('p_activa_' + park.id) ? 'line-through opacity-75' : ''"
+                          x-text="park.name"></span>
+                  </div>
+                  <div class="text-[11px] font-medium text-blue-700 mt-0.5 flex items-center gap-2">
+                    <span>Consigna P Activa verificada en SCADA</span>
+                    <span x-show="checkTimestamps['p_activa_' + park.id]"
+                          class="font-mono text-[10px] font-bold text-green-700"
+                          x-text="'• ' + (checkTimestamps['p_activa_' + park.id] || '')"></span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Right: Reference MW Badge & Quick Status -->
+              <div class="flex items-center gap-2 shrink-0" @click.stop>
+                <button type="button"
+                        @click="cycleParkMode('p_mode_' + park.id, ['P Nominal', 'Consigna CEN', 'Limitado'])"
+                        class="hidden sm:inline-flex text-[11px] font-mono font-bold px-2 py-1 rounded-lg border border-black bg-white text-blue-900 transition hover:bg-gray-100"
+                        x-text="getParkMode('p_mode_' + park.id, 'P Nominal')">
+                </button>
+
+                <div @click="toggleCheck('p_activa_' + park.id)"
+                     class="font-mono font-bold text-xs sm:text-sm px-2.5 py-1.5 rounded-lg border border-black bg-white text-blue-900 min-w-[76px] text-center cursor-pointer">
+                  <span x-text="park.mw"></span> <span class="text-[10px] font-semibold">MW</span>
+                </div>
+              </div>
+
+            </div>
+          </template>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- SECTION 2: CONSIGNAS DE POTENCIA REACTIVA (SOLAR Y EÓLICA) -->
+    <section class="bg-gray-200 border-2 border-black rounded-2xl overflow-hidden shadow-md">
+
+      <!-- Accordion Header -->
+      <div class="p-3.5 flex items-center justify-between gap-2 cursor-pointer select-none bg-gray-300 hover:bg-gray-200 transition"
+           @click="openSections.s2 = !openSections.s2">
+        <div class="flex items-center gap-3 min-w-0">
+          <div class="w-10 h-10 rounded-xl flex items-center justify-center font-mono font-extrabold text-sm shrink-0 border-2 border-black"
+               :class="getSectionProgress('p_reactiva').done === getSectionProgress('p_reactiva').total
+                 ? 'bg-white text-green-700'
+                 : 'bg-white text-blue-900'">
+            02
+          </div>
+          <div class="min-w-0">
+            <h2 class="font-extrabold text-sm sm:text-base text-blue-900 truncate">
+              Consignas de Potencia Reactiva (MVAr / kV)
+            </h2>
+            <p class="text-xs font-medium text-blue-800 truncate">
+              Control de Tensión / Q / FP en los mismos parques Solares y Eólicos
+            </p>
+          </div>
+        </div>
+
+        <div class="flex items-center gap-2 shrink-0">
+          <span class="font-mono text-xs font-bold px-2.5 py-1 rounded-lg border border-black bg-white text-blue-900">
+            <span x-text="getSectionProgress('p_reactiva').done"></span>/<span x-text="getSectionProgress('p_reactiva').total"></span>
+          </span>
+          <svg class="w-5 h-5 text-blue-900 transition-transform duration-200"
+               :class="openSections.s2 ? 'rotate-180' : ''"
+               fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/>
+          </svg>
+        </div>
+      </div>
+
+      <!-- Accordion Body -->
+      <div x-show="openSections.s2" x-collapse class="border-t-2 border-black p-3 space-y-3 bg-gray-200">
+
+        <!-- Sub-toolbar -->
+        <div class="flex flex-wrap items-center justify-between gap-2 bg-gray-300 p-2 rounded-xl border border-black">
+          <div class="flex items-center gap-1">
+            <button type="button"
+                    @click="techFilterQ = 'ALL'"
+                    class="px-2.5 py-1 rounded-lg text-xs font-bold border transition"
+                    :class="techFilterQ === 'ALL' ? 'bg-blue-800 text-white border-black' : 'bg-gray-100 text-blue-900 border-black hover:bg-white'">
+              Todos (<span x-text="parks.length"></span>)
+            </button>
+            <button type="button"
+                    @click="techFilterQ = 'SOLAR'"
+                    class="px-2.5 py-1 rounded-lg text-xs font-bold border transition"
+                    :class="techFilterQ === 'SOLAR' ? 'bg-blue-800 text-white border-black' : 'bg-gray-100 text-blue-900 border-black hover:bg-white'">
+              ☀️ Solar (<span x-text="parks.filter(p => p.type === 'SOLAR').length"></span>)
+            </button>
+            <button type="button"
+                    @click="techFilterQ = 'EOLICA'"
+                    class="px-2.5 py-1 rounded-lg text-xs font-bold border transition"
+                    :class="techFilterQ === 'EOLICA' ? 'bg-blue-800 text-white border-black' : 'bg-gray-100 text-blue-900 border-black hover:bg-white'">
+              💨 Eólica (<span x-text="parks.filter(p => p.type === 'EOLICA').length"></span>)
+            </button>
+          </div>
+
+          <button type="button"
+                  @click="toggleEntireSection('p_reactiva')"
+                  class="text-xs font-bold px-2.5 py-1 rounded-lg bg-white hover:bg-gray-100 text-blue-900 border border-black transition active:scale-95">
+            Marcar todos
+          </button>
+        </div>
+
+        <!-- Parks Reactive Power List -->
+        <div class="space-y-2">
+          <template x-for="park in filteredParks(techFilterQ, 'p_reactiva')" :key="'pr_' + park.id">
+            <div @click="toggleCheck('p_reactiva_' + park.id)"
+                 class="group relative flex items-center justify-between gap-3 p-3 rounded-xl border border-black transition-all cursor-pointer select-none active:scale-[0.99]"
+                 :class="isChecked('p_reactiva_' + park.id)
+                   ? 'bg-gray-300/90'
+                   : 'bg-gray-100 hover:bg-white'">
+
+              <div class="flex items-center gap-3 min-w-0 flex-1">
+                <div class="w-7 h-7 rounded-lg flex items-center justify-center bg-white border-2 border-black transition-all shrink-0 shadow-sm"
+                     :class="isChecked('p_reactiva_' + park.id) ? 'animate-check-pop' : ''">
+                  <svg x-show="isChecked('p_reactiva_' + park.id)" class="w-5 h-5 text-green-600 stroke-[3.5]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/>
+                  </svg>
+                </div>
+
+                <div class="min-w-0 flex-1">
+                  <div class="flex items-center gap-2 flex-wrap">
+                    <span class="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded border border-black bg-white text-blue-900"
+                          x-text="park.type === 'SOLAR' ? '☀️ PFV' : '💨 PE'"></span>
+                    <span class="font-bold text-sm sm:text-base transition text-blue-900"
+                          :class="isChecked('p_reactiva_' + park.id) ? 'line-through opacity-75' : ''"
+                          x-text="park.name"></span>
+                  </div>
+                  <div class="text-[11px] font-medium text-blue-700 mt-0.5 flex items-center gap-2">
+                    <span>Consigna Q / Tensión (kV) verificada</span>
+                    <span x-show="checkTimestamps['p_reactiva_' + park.id]"
+                          class="font-mono text-[10px] font-bold text-green-700"
+                          x-text="'• ' + (checkTimestamps['p_reactiva_' + park.id] || '')"></span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Right: Mode Selector (Control V / Q / FP) -->
+              <div class="flex items-center gap-2 shrink-0" @click.stop>
+                <button type="button"
+                        @click="cycleParkMode('q_mode_' + park.id, ['Control V (kV)', 'Consigna Q', 'Factor Pot.'])"
+                        class="text-[11px] font-mono font-bold px-2.5 py-1.5 rounded-lg border border-black bg-white text-blue-900 hover:bg-gray-100 transition"
+                        x-text="getParkMode('q_mode_' + park.id, 'Control V (kV)')">
+                </button>
+              </div>
+
+            </div>
+          </template>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- SECTION 3: REVISIÓN DE ENERGY SHIFTING EN BESS -->
+    <section class="bg-gray-200 border-2 border-black rounded-2xl overflow-hidden shadow-md">
+
+      <!-- Accordion Header -->
+      <div class="p-3.5 flex items-center justify-between gap-2 cursor-pointer select-none bg-gray-300 hover:bg-gray-200 transition"
+           @click="openSections.s3 = !openSections.s3">
+        <div class="flex items-center gap-3 min-w-0">
+          <div class="w-10 h-10 rounded-xl flex items-center justify-center font-mono font-extrabold text-sm shrink-0 border-2 border-black"
+               :class="getSectionProgress('bess_shifting').done === getSectionProgress('bess_shifting').total
+                 ? 'bg-white text-green-700'
+                 : 'bg-white text-blue-900'">
+            03
+          </div>
+          <div class="min-w-0">
+            <h2 class="font-extrabold text-sm sm:text-base text-blue-900 truncate">
+              Revisión de Energy Shifting en BESS
+            </h2>
+            <p class="text-xs font-medium text-blue-800 truncate">
+              BESS La Cabaña, Don Humberto, El Manzano y Las Salinas • Estado SoC y Ciclos
+            </p>
+          </div>
+        </div>
+
+        <div class="flex items-center gap-2 shrink-0">
+          <span class="font-mono text-xs font-bold px-2.5 py-1 rounded-lg border border-black bg-white text-blue-900">
+            <span x-text="getSectionProgress('bess_shifting').done"></span>/<span x-text="getSectionProgress('bess_shifting').total"></span>
+          </span>
+          <svg class="w-5 h-5 text-blue-900 transition-transform duration-200"
+               :class="openSections.s3 ? 'rotate-180' : ''"
+               fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/>
+          </svg>
+        </div>
+      </div>
+
+      <!-- Accordion Body -->
+      <div x-show="openSections.s3" x-collapse class="border-t-2 border-black p-3 space-y-2.5 bg-gray-200">
+        <template x-for="item in bessShiftingItems" :key="item.id">
+          <div @click="toggleCheck(item.id)"
+               x-show="!showOnlyPending || !isChecked(item.id)"
+               class="group flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 rounded-xl border border-black transition-all cursor-pointer select-none active:scale-[0.99]"
+               :class="isChecked(item.id)
+                 ? 'bg-gray-300/90'
+                 : 'bg-gray-100 hover:bg-white'">
+
+            <div class="flex items-start sm:items-center gap-3 min-w-0">
+              <div class="w-7 h-7 rounded-lg flex items-center justify-center bg-white border-2 border-black transition-all shrink-0 mt-0.5 sm:mt-0 shadow-sm"
+                   :class="isChecked(item.id) ? 'animate-check-pop' : ''">
+                <svg x-show="isChecked(item.id)" class="w-5 h-5 text-green-600 stroke-[3.5]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/>
+                </svg>
+              </div>
+
+              <div class="min-w-0">
+                <div class="flex items-center gap-2 flex-wrap">
+                  <span class="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-white border border-black text-blue-900">
+                    🔋 BESS
+                  </span>
+                  <span class="font-bold text-sm sm:text-base text-blue-900"
+                        :class="isChecked(item.id) ? 'line-through opacity-75' : ''"
+                        x-text="item.name"></span>
+                </div>
+                <p class="text-xs font-medium text-blue-700 mt-0.5" x-text="item.desc"></p>
+              </div>
+            </div>
+
+            <!-- Interactive BESS State & SoC Quick Controls -->
+            <div class="flex items-center justify-end gap-2 pl-10 sm:pl-0 shrink-0" @click.stop>
+              <button type="button"
+                      @click="cycleParkMode('bess_state_' + item.id, ['Standby', 'Cargando ⚡', 'Descargando 📤'])"
+                      class="text-xs font-mono font-bold px-2.5 py-1.5 rounded-lg border border-black bg-white text-blue-900 hover:bg-gray-100 transition"
+                      x-text="getParkMode('bess_state_' + item.id, 'Standby')">
+              </button>
+
+              <div class="flex items-center bg-white border border-black rounded-lg px-2 py-1">
+                <span class="text-[10px] font-mono font-bold text-blue-800 mr-1">SoC</span>
+                <input type="number"
+                       min="0" max="100"
+                       placeholder="--"
+                       x-model="bessSoc[item.id]"
+                       @input="saveState()"
+                       class="w-10 bg-transparent font-mono text-xs font-bold text-blue-900 text-right focus:outline-none" />
+                <span class="text-[10px] font-mono font-bold text-blue-800 ml-0.5">%</span>
+              </div>
+            </div>
+
+          </div>
+        </template>
+      </div>
+    </section>
+
+    <!-- SECTION 4: REVISIÓN DE SSCC / CPF - AGC -->
+    <section class="bg-gray-200 border-2 border-black rounded-2xl overflow-hidden shadow-md">
+
+      <!-- Accordion Header -->
+      <div class="p-3.5 flex items-center justify-between gap-2 cursor-pointer select-none bg-gray-300 hover:bg-gray-200 transition"
+           @click="openSections.s4 = !openSections.s4">
+        <div class="flex items-center gap-3 min-w-0">
+          <div class="w-10 h-10 rounded-xl flex items-center justify-center font-mono font-extrabold text-sm shrink-0 border-2 border-black"
+               :class="getSectionProgress('sscc_agc').done === getSectionProgress('sscc_agc').total
+                 ? 'bg-white text-green-700'
+                 : 'bg-white text-blue-900'">
+            04
+          </div>
+          <div class="min-w-0">
+            <h2 class="font-extrabold text-sm sm:text-base text-blue-900 truncate">
+              Revisión de SSCC / CPF - AGC
+            </h2>
+            <p class="text-xs font-medium text-blue-800 truncate">
+              BESS (La Cabaña, Don Humberto, El Manzano, Las Salinas) y PFV (Don Humberto, Campos del Sol, Las Salinas)
+            </p>
+          </div>
+        </div>
+
+        <div class="flex items-center gap-2 shrink-0">
+          <span class="font-mono text-xs font-bold px-2.5 py-1 rounded-lg border border-black bg-white text-blue-900">
+            <span x-text="getSectionProgress('sscc_agc').done"></span>/<span x-text="getSectionProgress('sscc_agc').total"></span>
+          </span>
+          <svg class="w-5 h-5 text-blue-900 transition-transform duration-200"
+               :class="openSections.s4 ? 'rotate-180' : ''"
+               fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/>
+          </svg>
+        </div>
+      </div>
+
+      <!-- Accordion Body -->
+      <div x-show="openSections.s4" x-collapse class="border-t-2 border-black p-3 space-y-2.5 bg-gray-200">
+        <template x-for="item in ssccAgcItems" :key="item.id">
+          <div @click="toggleCheck(item.id)"
+               x-show="!showOnlyPending || !isChecked(item.id)"
+               class="group flex items-center justify-between gap-3 p-3.5 rounded-xl border border-black transition-all cursor-pointer select-none active:scale-[0.99]"
+               :class="isChecked(item.id)
+                 ? 'bg-gray-300/90'
+                 : 'bg-gray-100 hover:bg-white'">
+
+            <div class="flex items-center gap-3 min-w-0 flex-1">
+              <div class="w-7 h-7 rounded-lg flex items-center justify-center bg-white border-2 border-black transition-all shrink-0 shadow-sm"
+                   :class="isChecked(item.id) ? 'animate-check-pop' : ''">
+                <svg x-show="isChecked(item.id)" class="w-5 h-5 text-green-600 stroke-[3.5]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/>
+                </svg>
+              </div>
+
+              <div class="min-w-0">
+                <div class="flex items-center gap-2 flex-wrap">
+                  <span class="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded border border-black bg-white text-blue-900"
+                        x-text="item.category === 'BESS' ? '🔋 BESS' : '☀️ PFV'"></span>
+                  <span class="font-bold text-sm sm:text-base text-blue-900"
+                        :class="isChecked(item.id) ? 'line-through opacity-75' : ''"
+                        x-text="item.name"></span>
+                </div>
+                <p class="text-xs font-medium text-blue-700 mt-0.5" x-text="item.desc"></p>
+              </div>
+            </div>
+
+            <!-- Status Pill (CPF / AGC) -->
+            <div class="shrink-0" @click.stop>
+              <button type="button"
+                      @click="cycleParkMode('sscc_mode_' + item.id, ['Solo CPF', 'Solo AGC', 'CPF + AGC', 'Sin SSCC'])"
+                      class="text-[11px] font-mono font-bold px-2.5 py-1.5 rounded-lg border border-black bg-white text-blue-900 hover:bg-gray-100 transition"
+                      x-text="getParkMode('sscc_mode_' + item.id, 'Solo CPF')">
+              </button>
+            </div>
+
+          </div>
+        </template>
+      </div>
+    </section>
+
+    <!-- SECTION 5: REVISIÓN EDAG / ERAG (PARQUES EÓLICOS) -->
+    <section class="bg-gray-200 border-2 border-black rounded-2xl overflow-hidden shadow-md">
+
+      <!-- Accordion Header -->
+      <div class="p-3.5 flex items-center justify-between gap-2 cursor-pointer select-none bg-gray-300 hover:bg-gray-200 transition"
+           @click="openSections.s5 = !openSections.s5">
+        <div class="flex items-center gap-3 min-w-0">
+          <div class="w-10 h-10 rounded-xl flex items-center justify-center font-mono font-extrabold text-sm shrink-0 border-2 border-black"
+               :class="getSectionProgress('edag_erag').done === getSectionProgress('edag_erag').total
+                 ? 'bg-white text-green-700'
+                 : 'bg-white text-blue-900'">
+            05
+          </div>
+          <div class="min-w-0">
+            <h2 class="font-extrabold text-sm sm:text-base text-blue-900 truncate">
+              Revisión EDAG / ERAG
+            </h2>
+            <p class="text-xs font-medium text-blue-800 truncate">
+              Parques Eólicos: Renaico I, Renaico II y La Cabaña
+            </p>
+          </div>
+        </div>
+
+        <div class="flex items-center gap-2 shrink-0">
+          <span class="font-mono text-xs font-bold px-2.5 py-1 rounded-lg border border-black bg-white text-blue-900">
+            <span x-text="getSectionProgress('edag_erag').done"></span>/<span x-text="getSectionProgress('edag_erag').total"></span>
+          </span>
+          <svg class="w-5 h-5 text-blue-900 transition-transform duration-200"
+               :class="openSections.s5 ? 'rotate-180' : ''"
+               fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/>
+          </svg>
+        </div>
+      </div>
+
+      <!-- Accordion Body -->
+      <div x-show="openSections.s5" x-collapse class="border-t-2 border-black p-3 space-y-2.5 bg-gray-200">
+        <template x-for="item in edagEragItems" :key="item.id">
+          <div @click="toggleCheck(item.id)"
+               x-show="!showOnlyPending || !isChecked(item.id)"
+               class="group flex items-center justify-between gap-3 p-3.5 rounded-xl border border-black transition-all cursor-pointer select-none active:scale-[0.99]"
+               :class="isChecked(item.id)
+                 ? 'bg-gray-300/90'
+                 : 'bg-gray-100 hover:bg-white'">
+
+            <div class="flex items-center gap-3 min-w-0 flex-1">
+              <div class="w-7 h-7 rounded-lg flex items-center justify-center bg-white border-2 border-black transition-all shrink-0 shadow-sm"
+                   :class="isChecked(item.id) ? 'animate-check-pop' : ''">
+                <svg x-show="isChecked(item.id)" class="w-5 h-5 text-green-600 stroke-[3.5]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/>
+                </svg>
+              </div>
+
+              <div class="min-w-0">
+                <div class="flex items-center gap-2 flex-wrap">
+                  <span class="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-white border border-black text-blue-900">
+                    🛡️ EDAG / ERAG
+                  </span>
+                  <span class="font-bold text-sm sm:text-base text-blue-900"
+                        :class="isChecked(item.id) ? 'line-through opacity-75' : ''"
+                        x-text="item.name"></span>
+                </div>
+                <p class="text-xs font-medium text-blue-700 mt-0.5" x-text="item.desc"></p>
+              </div>
+            </div>
+
+            <div class="flex items-center gap-1.5 shrink-0" @click.stop>
+              <!-- Botón EDAG ON / OFF -->
+              <button type="button"
+                      @click="cycleParkMode('edag_state_' + item.id, ['EDAG ON', 'EDAG OFF'])"
+                      class="text-[11px] font-mono font-bold px-2.5 py-1.5 rounded-lg border border-black bg-white text-blue-900 hover:bg-gray-100 active:scale-95 transition flex items-center gap-1.5">
+                <span class="w-2 h-2 rounded-full border border-black"
+                      :class="getParkMode('edag_state_' + item.id, 'EDAG ON') === 'EDAG ON' ? 'bg-green-600' : 'bg-gray-400'"></span>
+                <span x-text="getParkMode('edag_state_' + item.id, 'EDAG ON')"></span>
+              </button>
+
+              <!-- Botón ERAG ON / OFF -->
+              <button type="button"
+                      @click="cycleParkMode('erag_state_' + item.id, ['ERAG ON', 'ERAG OFF'])"
+                      class="text-[11px] font-mono font-bold px-2.5 py-1.5 rounded-lg border border-black bg-white text-blue-900 hover:bg-gray-100 active:scale-95 transition flex items-center gap-1.5">
+                <span class="w-2 h-2 rounded-full border border-black"
+                      :class="getParkMode('erag_state_' + item.id, 'ERAG ON') === 'ERAG ON' ? 'bg-green-600' : 'bg-gray-400'"></span>
+                <span x-text="getParkMode('erag_state_' + item.id, 'ERAG ON')"></span>
+              </button>
+            </div>
+
+          </div>
+        </template>
+      </div>
+    </section>
+
+    <!-- SECTION 6: REVISIÓN DE ALARMAS WTG WIND -->
+    <section class="bg-gray-200 border-2 border-black rounded-2xl overflow-hidden shadow-md">
+
+      <!-- Accordion Header -->
+      <div class="p-3.5 flex items-center justify-between gap-2 cursor-pointer select-none bg-gray-300 hover:bg-gray-200 transition"
+           @click="openSections.s6 = !openSections.s6">
+        <div class="flex items-center gap-3 min-w-0">
+          <div class="w-10 h-10 rounded-xl flex items-center justify-center font-mono font-extrabold text-sm shrink-0 border-2 border-black"
+               :class="getSectionProgress('wtg_alarms').done === getSectionProgress('wtg_alarms').total
+                 ? 'bg-white text-green-700'
+                 : 'bg-white text-blue-900'">
+            06
+          </div>
+          <div class="min-w-0">
+            <h2 class="font-extrabold text-sm sm:text-base text-blue-900 truncate">
+              Revisión de Alarmas WTG Wind
+            </h2>
+            <p class="text-xs font-medium text-blue-800 truncate">
+              Revisión de Alarmas Reseteables y No Reseteables
+            </p>
+          </div>
+        </div>
+
+        <div class="flex items-center gap-2 shrink-0">
+          <span class="font-mono text-xs font-bold px-2.5 py-1 rounded-lg border border-black bg-white text-blue-900">
+            <span x-text="getSectionProgress('wtg_alarms').done"></span>/<span x-text="getSectionProgress('wtg_alarms').total"></span>
+          </span>
+          <svg class="w-5 h-5 text-blue-900 transition-transform duration-200"
+               :class="openSections.s6 ? 'rotate-180' : ''"
+               fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/>
+          </svg>
+        </div>
+      </div>
+
+      <!-- Accordion Body -->
+      <div x-show="openSections.s6" x-collapse class="border-t-2 border-black p-3 space-y-2.5 bg-gray-200">
+        <template x-for="item in wtgAlarmItems" :key="item.id">
+          <div @click="toggleCheck(item.id)"
+               x-show="!showOnlyPending || !isChecked(item.id)"
+               class="group flex items-center justify-between gap-3 p-3.5 rounded-xl border border-black transition-all cursor-pointer select-none active:scale-[0.99]"
+               :class="isChecked(item.id)
+                 ? 'bg-gray-300/90'
+                 : 'bg-gray-100 hover:bg-white'">
+
+            <div class="flex items-center gap-3 min-w-0 flex-1">
+              <div class="w-7 h-7 rounded-lg flex items-center justify-center bg-white border-2 border-black transition-all shrink-0 shadow-sm"
+                   :class="isChecked(item.id) ? 'animate-check-pop' : ''">
+                <svg x-show="isChecked(item.id)" class="w-5 h-5 text-green-600 stroke-[3.5]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/>
+                </svg>
+              </div>
+
+              <div class="min-w-0">
+                <div class="flex items-center gap-2 flex-wrap">
+                  <span class="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-white border border-black text-blue-900">
+                    ⚠️ WTG WIND
+                  </span>
+                  <span class="font-bold text-sm sm:text-base text-blue-900"
+                        :class="isChecked(item.id) ? 'line-through opacity-75' : ''"
+                        x-text="item.name"></span>
+                </div>
+                <p class="text-xs font-medium text-blue-700 mt-0.5" x-text="item.desc"></p>
+              </div>
+            </div>
+
+          </div>
+        </template>
+      </div>
+    </section>
+
+    <!-- ================= OBSERVATIONS / SHIFT LOG & ACTIONS ================= -->
+    <section class="bg-gray-200 border-2 border-black rounded-2xl p-4 shadow-md space-y-3">
+      <div>
+        <h3 class="font-extrabold text-sm sm:text-base text-blue-900 flex items-center gap-2">
+          <svg class="w-4 h-4 text-blue-800" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+          </svg>
+          Observaciones y Novedades del Turno
+        </h3>
+      </div>
+
+      <!-- Textarea -->
+      <textarea x-model="observations"
+                @input="saveState()"
+                rows="4"
+                placeholder="Escribe aquí las observaciones o novedades del turno..."
+                class="w-full bg-white border-2 border-black focus:border-blue-800 rounded-xl p-3 text-sm font-medium text-blue-900 placeholder-blue-400 focus:outline-none transition resize-y"></textarea>
+
+      <!-- Action Buttons (Mobile-First Large Touch Buttons) -->
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-1 no-print">
+        <!-- Save Shift to Integrated History -->
+        <button type="button"
+                @click="saveShiftToHistory()"
+                class="py-3 px-4 rounded-xl font-bold text-sm bg-blue-800 hover:bg-blue-900 text-white border-2 border-black shadow-sm active:scale-95 transition flex items-center justify-center gap-2">
+          <svg class="w-4 h-4 stroke-[2.5]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/>
+          </svg>
+          <span x-text="savedShiftToast ? '¡Turno Guardado!' : 'Guardar Turno'"></span>
+        </button>
+
+        <!-- Copy Summary Report -->
+        <button type="button"
+                @click="copyReportToClipboard()"
+                class="py-3 px-4 rounded-xl font-bold text-sm bg-white hover:bg-gray-100 text-blue-900 border-2 border-black active:scale-95 transition flex items-center justify-center gap-2">
+          <svg class="w-4 h-4 stroke-[2.2]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"/>
+          </svg>
+          <span x-text="copiedToast ? '¡Copiado!' : 'Copiar Reporte'"></span>
+        </button>
+
+        <!-- Clear / Reset Checklist -->
+        <button type="button"
+                @click="confirmResetModal = true"
+                class="py-3 px-4 rounded-xl font-bold text-sm bg-gray-300 hover:bg-gray-100 text-blue-900 border-2 border-black active:scale-95 transition flex items-center justify-center gap-2">
+          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+          </svg>
+          <span>Limpiar Checklist</span>
+        </button>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ================= INSTITUTIONAL FOOTER ================= -->
+  <footer class="mt-auto border-t-2 border-black bg-gray-300 py-5 px-4 text-center">
+    <div class="max-w-2xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-2 text-xs font-semibold text-blue-900">
+      <div class="flex items-center gap-2">
+        <span class="w-2.5 h-2.5 rounded-full bg-blue-800 border border-black"></span>
+        <span>Sistema de Control y Despacho de Carga ERNC</span>
+      </div>
+      <div class="font-mono font-extrabold text-sm tracking-wide text-blue-900">
+        By Michael NB-&gamma;
+      </div>
+    </div>
+  </footer>
+
+  <!-- ================= MODAL: CONFIGURAR TABLA DE PARQUES Y MW ================= -->
+  <div x-show="openParksModal"
+       x-cloak
+       class="fixed inset-0 z-50 flex items-center justify-center p-3 bg-black/60 backdrop-blur-sm">
+    <div @click.away="openParksModal = false"
+         class="bg-gray-200 border-2 border-black rounded-2xl max-w-xl w-full max-h-[88vh] flex flex-col shadow-2xl overflow-hidden">
+
+      <div class="p-4 border-b-2 border-black bg-gray-300 flex items-center justify-between">
+        <div>
+          <h3 class="font-extrabold text-base text-blue-900">Tabla de Referencia: Parques y MW</h3>
+          <p class="text-xs font-medium text-blue-800">Edita los valores de MW o agrega parques solares y eólicos</p>
+        </div>
+        <button @click="openParksModal = false" class="p-1.5 rounded-lg text-blue-900 font-bold hover:bg-gray-100 border border-black">
+          ✕
+        </button>
+      </div>
+
+      <div class="p-4 overflow-y-auto space-y-3 flex-1">
+        <!-- Add New Park Form & Filter by Type -->
+        <div class="bg-gray-300 border border-black p-3 rounded-xl grid grid-cols-1 sm:grid-cols-12 gap-2">
+          <select x-model="newParkType"
+                  class="sm:col-span-3 bg-white border border-black rounded-lg px-2.5 py-2 text-xs font-bold text-blue-900 cursor-pointer">
+            <option value="SOLAR">☀️ Solar (PFV)</option>
+            <option value="EOLICA">💨 Eólica (PE)</option>
+          </select>
+          <input type="text"
+                 x-model="newParkName"
+                 :placeholder="newParkType === 'SOLAR' ? 'Nombre del Parque (ej. PFV Campos del Sol)' : 'Nombre del Parque (ej. PE Renaico I)'"
+                 class="sm:col-span-5 bg-white border border-black rounded-lg px-2.5 py-2 text-xs font-semibold text-blue-900 placeholder-blue-400" />
+          <input type="text"
+                 x-model="newParkMw"
+                 placeholder="MW (ej. 375)"
+                 class="sm:col-span-2 bg-white border border-black rounded-lg px-2.5 py-2 text-xs font-mono font-bold text-blue-900 placeholder-blue-400" />
+          <button type="button"
+                  @click="addNewPark()"
+                  class="sm:col-span-2 bg-blue-800 hover:bg-blue-900 text-white font-bold text-xs rounded-lg py-2 px-3 border border-black transition">
+            + Agregar
+          </button>
+        </div>
+
+        <!-- Existing Parks Editable Table (Filtered by Selected Type) -->
+        <div class="space-y-1.5">
+          <template x-for="(p, idx) in parks" :key="p.id">
+            <div x-show="p.type === newParkType"
+                 class="flex items-center justify-between gap-2 bg-gray-100 border border-black rounded-xl px-3 py-2">
+              <div class="flex items-center gap-2 min-w-0 flex-1">
+                <button type="button"
+                        @click="p.type = (p.type === 'SOLAR' ? 'EOLICA' : 'SOLAR'); saveState()"
+                        class="text-[10px] font-mono font-bold px-2 py-1 rounded border border-black bg-white text-blue-900 shrink-0"
+                        x-text="p.type === 'SOLAR' ? '☀️ PFV' : '💨 PE'"></button>
+                <input type="text"
+                       x-model="p.name"
+                       @input="saveState()"
+                       class="bg-transparent text-xs sm:text-sm font-bold text-blue-900 focus:outline-none border-b border-transparent focus:border-blue-800 w-full" />
+              </div>
+
+              <div class="flex items-center gap-2 shrink-0">
+                <div class="flex items-center bg-white border border-black rounded-lg px-2 py-1">
+                  <input type="text"
+                         x-model="p.mw"
+                         @input="saveState()"
+                         class="w-14 bg-transparent font-mono text-xs font-bold text-blue-900 text-right focus:outline-none" />
+                  <span class="text-[10px] font-mono font-bold text-blue-800 ml-1">MW</span>
+                </div>
+                <button type="button"
+                        @click="removePark(idx)"
+                        class="text-blue-900 hover:text-red-700 p-1 text-xs font-bold"
+                        title="Eliminar parque">
+                  🗑️
+                </button>
+              </div>
+            </div>
+          </template>
+        </div>
+      </div>
+
+      <div class="p-3.5 border-t-2 border-black flex items-center justify-between bg-gray-300">
+        <button type="button"
+                @click="resetDefaultParks()"
+                class="text-xs font-bold text-blue-900 hover:underline">
+          Restaurar tabla por defecto
+        </button>
+        <button type="button"
+                @click="openParksModal = false"
+                class="px-4 py-2 rounded-xl bg-blue-800 text-white border border-black font-bold text-xs">
+          Listo y Guardar
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= MODAL: CONFIRMAR LIMPIAR CHECKLIST ================= -->
+  <div x-show="confirmResetModal"
+       x-cloak
+       class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+    <div @click.away="confirmResetModal = false"
+         class="bg-gray-200 border-2 border-black rounded-2xl max-w-sm w-full p-5 text-center space-y-4 shadow-2xl">
+      <div class="w-12 h-12 rounded-full bg-white border-2 border-black text-blue-900 flex items-center justify-center mx-auto text-xl">
+        ⚠️
+      </div>
+      <div>
+        <h3 class="font-extrabold text-base text-blue-900">¿Limpiar Checklist de Turno?</h3>
+        <p class="text-xs font-medium text-blue-800 mt-1">
+          Se desmarcarán todos los ítems verificados y se limpiarán las observaciones para iniciar un nuevo turno.
+        </p>
+      </div>
+      <div class="grid grid-cols-2 gap-2.5">
+        <button type="button"
+                @click="confirmResetModal = false"
+                class="py-2.5 rounded-xl text-xs font-bold bg-white text-blue-900 border border-black hover:bg-gray-100">
+          Cancelar
+        </button>
+        <button type="button"
+                @click="resetChecklist()"
+                class="py-2.5 rounded-xl text-xs font-bold bg-blue-800 hover:bg-blue-900 text-white border border-black">
+          Sí, Limpiar Todo
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= MODAL: HISTORIAL DE TURNOS (ULTRALIGERO MÁX. 30) ================= -->
+  <div x-show="openHistoryModal"
+       x-cloak
+       class="fixed inset-0 z-50 flex items-center justify-center p-3 bg-black/60 backdrop-blur-sm">
+    <div @click.away="openHistoryModal = false"
+         class="bg-gray-200 border-2 border-black rounded-2xl max-w-xl w-full max-h-[88vh] flex flex-col shadow-2xl overflow-hidden">
+
+      <div class="p-4 border-b-2 border-black bg-gray-300 flex items-center justify-between">
+        <div>
+          <h3 class="font-extrabold text-base text-blue-900">📜 Historial de Turnos Guardados</h3>
+          <p class="text-xs font-medium text-blue-800">
+            Auto-limpieza activa: conserva los últimos 30 turnos (<span class="font-mono font-bold" x-text="shiftHistory.length + '/30'"></span> • <span class="font-mono font-bold" x-text="historyStorageSizeKb"></span>)
+          </p>
+        </div>
+        <button @click="openHistoryModal = false" class="p-1.5 rounded-lg text-blue-900 font-bold hover:bg-gray-100 border border-black">
+          ✕
+        </button>
+      </div>
+
+      <div class="p-4 overflow-y-auto space-y-3 flex-1">
+        <template x-if="shiftHistory.length === 0">
+          <div class="bg-gray-100 border border-black rounded-xl p-6 text-center space-y-1">
+            <p class="font-bold text-sm text-blue-900">Aún no hay turnos guardados</p>
+            <p class="text-xs text-blue-700">Al finalizar tu revisión, toca el botón "Guardar Turno" abajo para registrar el turno aquí sin ocupar espacio en tu celular.</p>
+          </div>
+        </template>
+
+        <template x-for="(entry, hIdx) in shiftHistory" :key="entry.id">
+          <div class="bg-gray-100 border-2 border-black rounded-xl p-3 space-y-2 shadow-sm">
+            <div class="flex items-center justify-between gap-2 border-b border-black/30 pb-2">
+              <div>
+                <div class="font-mono font-extrabold text-xs sm:text-sm text-blue-900" x-text="entry.dt"></div>
+                <div class="text-xs font-bold text-blue-800" x-text="'Operador: ' + (entry.op || 'No especificado')"></div>
+              </div>
+              <div class="flex items-center gap-1.5">
+                <span class="font-mono text-xs font-bold px-2 py-0.5 rounded border border-black bg-white text-blue-900"
+                      x-text="entry.done + '/' + entry.total + ' (' + entry.pct + '%)'"></span>
+                <button type="button"
+                        @click="copyHistoryItem(entry)"
+                        class="text-xs font-bold px-2 py-1 rounded border border-black bg-white hover:bg-gray-200 text-blue-900"
+                        title="Copiar resumen de este turno">
+                  📋 Copiar
+                </button>
+                <button type="button"
+                        @click="deleteHistoryItem(hIdx)"
+                        class="text-xs font-bold px-2 py-1 rounded border border-black bg-white hover:bg-gray-200 text-blue-900"
+                        title="Eliminar turno del historial">
+                  🗑️
+                </button>
+              </div>
+            </div>
+
+            <!-- Compact Details -->
+            <div class="text-xs text-blue-900 space-y-1">
+              <div><span class="font-bold">🔋 BESS:</span> <span x-text="entry.bess"></span></div>
+              <div><span class="font-bold">⚡ SSCC:</span> <span x-text="entry.sscc"></span></div>
+              <div><span class="font-bold">🛡️ EDAG/ERAG:</span> <span x-text="entry.edag"></span></div>
+              <template x-if="entry.exc">
+                <div><span class="font-bold">📌 Modos P/Q:</span> <span x-text="entry.exc"></span></div>
+              </template>
+              <div class="bg-white border border-black rounded-lg p-2 mt-1">
+                <span class="font-bold block text-[11px] uppercase text-blue-800">Observaciones:</span>
+                <p class="whitespace-pre-line font-medium text-blue-900" x-text="entry.obs || 'Sin observaciones.'"></p>
+              </div>
+            </div>
+          </div>
+        </template>
+      </div>
+
+      <div class="p-3.5 border-t-2 border-black flex items-center justify-between bg-gray-300">
+        <button type="button"
+                x-show="shiftHistory.length > 0"
+                @click="clearAllHistory()"
+                class="text-xs font-bold text-blue-900 hover:underline">
+          Vaciar historial
+        </button>
+        <div x-show="shiftHistory.length === 0"></div>
+        <button type="button"
+                @click="openHistoryModal = false"
+                class="px-4 py-2 rounded-xl bg-blue-800 text-white border border-black font-bold text-xs">
+          Cerrar
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= APPLICATION LOGIC ================= -->
+  <script>
+    const DEFAULT_PARKS = [
+      // Parques Solares (PFV)
+      { id: 'pfv_chanares', type: 'SOLAR', name: 'PFV Chañares', mw: '40.0' },
+      { id: 'pfv_finis_terrae', type: 'SOLAR', name: 'PFV Finis Terrae', mw: '160.0' },
+      { id: 'pfv_lalackama', type: 'SOLAR', name: 'PFV Lalackama', mw: '78.0' },
+      { id: 'pfv_sol_de_lila', type: 'SOLAR', name: 'PFV Sol de Lila', mw: '161.0' },
+      { id: 'pfv_azabache', type: 'SOLAR', name: 'PFV Azabache', mw: '60.9' },
+      { id: 'pfv_campos_del_sol', type: 'SOLAR', name: 'PFV Campos del Sol', mw: '375.0' },
+      { id: 'pfv_valle_del_sol', type: 'SOLAR', name: 'PFV Valle del Sol', mw: '163.0' },
+      { id: 'pfv_guanchoi', type: 'SOLAR', name: 'PFV Guanchoi', mw: '398.0' },
+      { id: 'pfv_las_salinas', type: 'SOLAR', name: 'PFV Las Salinas', mw: '205.0' },
+      { id: 'pfv_la_silla', type: 'SOLAR', name: 'PFV La Silla', mw: '1.7' },
+      { id: 'pfv_don_humberto', type: 'SOLAR', name: 'PFV Don Humberto', mw: '81.0' },
+      { id: 'pfv_el_manzano', type: 'SOLAR', name: 'PFV El Manzano', mw: '88.0' },
+
+      // Parques Eólicos (PE)
+      { id: 'pe_los_buenos_aires', type: 'EOLICA', name: 'PE Los Buenos Aires', mw: '24.0' },
+      { id: 'pe_canela_1', type: 'EOLICA', name: 'PE Canela 1', mw: '18.1' },
+      { id: 'pe_canela_2', type: 'EOLICA', name: 'PE Canela 2', mw: '60.0' },
+      { id: 'pe_renaico_1', type: 'EOLICA', name: 'PE Renaico I', mw: '88.0' },
+      { id: 'pe_renaico_2', type: 'EOLICA', name: 'PE Renaico II', mw: '144.0' },
+      { id: 'pe_sierra_gorda', type: 'EOLICA', name: 'PE Sierra Gorda', mw: '112.0' },
+      { id: 'pe_talinay_oriente', type: 'EOLICA', name: 'PE Talinay Oriente', mw: '90.0' },
+      { id: 'pe_talinay_poniente', type: 'EOLICA', name: 'PE Talinay Poniente', mw: '61.0' },
+      { id: 'pe_taltal', type: 'EOLICA', name: 'PE Taltal', mw: '99.0' },
+      { id: 'pe_valle_de_los_vientos', type: 'EOLICA', name: 'PE Valle de los Vientos', mw: '90.0' }
+    ];
+
+    function scadaChecklist() {
+      return {
+        currentDate: '',
+        currentTime: '',
+        operatorName: '',
+        observations: '',
+        showOnlyPending: false,
+        allExpanded: true,
+        openParksModal: false,
+        openHistoryModal: false,
+        confirmResetModal: false,
+        copiedToast: false,
+        savedShiftToast: false,
+        shiftHistory: [],
+
+        techFilterP: 'ALL',
+        techFilterQ: 'ALL',
+
+        newParkType: 'SOLAR',
+        newParkName: '',
+        newParkMw: '',
+
+        openSections: {
+          s1: true,
+          s2: false,
+          s3: true,
+          s4: true,
+          s5: true,
+          s6: true
+        },
+
+        parks: JSON.parse(JSON.stringify(DEFAULT_PARKS)),
+
+        // Section 3: Energy Shifting BESS
+        bessShiftingItems: [
+          {
+            id: 'bess_shift_la_cabana',
+            name: 'BESS La Cabaña',
+            desc: 'Revisión de Energy Shifting, SoC (%), ventana de carga/descarga y disponibilidad PCS.'
+          },
+          {
+            id: 'bess_shift_don_humberto',
+            name: 'BESS Don Humberto',
+            desc: 'Revisión de Energy Shifting, SoC (%), límites térmicos/operativos y estado BMS.'
+          },
+          {
+            id: 'bess_shift_el_manzano',
+            name: 'BESS El Manzano',
+            desc: 'Revisión de Energy Shifting, SoC (%), consigna programada e inyección en barra.'
+          },
+          {
+            id: 'bess_shift_las_salinas',
+            name: 'BESS Las Salinas',
+            desc: 'Revisión de Energy Shifting, SoC (%), programa de carga/descarga y estado operativo.'
+          }
+        ],
+
+        // Section 4: SSCC / CPF - AGC
+        ssccAgcItems: [
+          {
+            id: 'sscc_bess_la_cabana',
+            category: 'BESS',
+            name: 'BESS La Cabaña',
+            desc: 'Verificación de lazo SSCC / CPF - AGC, banda de regulación y telemetría CEN.'
+          },
+          {
+            id: 'sscc_bess_don_humberto',
+            category: 'BESS',
+            name: 'BESS Don Humberto',
+            desc: 'Verificación de lazo SSCC / CPF - AGC, respuesta en frecuencia y estado operativo.'
+          },
+          {
+            id: 'sscc_bess_el_manzano',
+            category: 'BESS',
+            name: 'BESS El Manzano',
+            desc: 'Verificación de lazo SSCC / CPF - AGC, seguimiento de consigna y modo remoto.'
+          },
+          {
+            id: 'sscc_bess_las_salinas',
+            category: 'BESS',
+            name: 'BESS Las Salinas',
+            desc: 'Verificación de lazo SSCC / CPF - AGC, banda de regulación y estado de control.'
+          },
+          {
+            id: 'sscc_pfv_don_humberto',
+            category: 'PFV',
+            name: 'PFV Don Humberto',
+            desc: 'Verificación de habilitación CPF / AGC en planta solar y consigna de reserva.'
+          },
+          {
+            id: 'sscc_pfv_campos_del_sol',
+            category: 'PFV',
+            name: 'PFV Campos del Sol',
+            desc: 'Verificación de estado SSCC / CPF - AGC, estatismo y enlace de control.'
+          },
+          {
+            id: 'sscc_pfv_las_salinas',
+            category: 'PFV',
+            name: 'PFV Las Salinas',
+            desc: 'Verificación de estado SSCC / CPF - AGC, seguimiento activo y límites operativos.'
+          }
+        ],
+
+        // Section 5: EDAG / ERAG
+        edagEragItems: [
+          {
+            id: 'edag_pe_renaico_1',
+            name: 'PE Renaico I',
+            desc: 'Revisión de esquema EDAG / ERAG habilitado, escalones activos y estado de enlace.'
+          },
+          {
+            id: 'edag_pe_renaico_2',
+            name: 'PE Renaico II',
+            desc: 'Revisión de esquema EDAG / ERAG habilitado, señales de disparo y teleprotección.'
+          },
+          {
+            id: 'edag_pe_la_cabana',
+            name: 'PE La Cabaña',
+            desc: 'Revisión de esquema EDAG / ERAG habilitado, relés operativos y estado en SCADA.'
+          }
+        ],
+
+        // Section 6: Alarmas WTG Wind
+        wtgAlarmItems: [
+          {
+            id: 'wtg_alarmas_reseteables',
+            name: 'Alarmas Reseteables',
+            desc: 'Revisión de alarmas reseteables en aerogeneradores (WTG Wind).'
+          },
+          {
+            id: 'wtg_alarmas_no_reseteables',
+            name: 'Alarmas No Reseteables',
+            desc: 'Revisión de alarmas no reseteables en aerogeneradores (WTG Wind).'
+          }
+        ],
+
+        checkedItems: {},
+        checkTimestamps: {},
+        parkModes: {},
+        bessSoc: {},
+
+        initApp() {
+          this.updateClock();
+          setInterval(() => this.updateClock(), 1000);
+          this.loadState();
+        },
+
+        updateClock() {
+          const now = new Date();
+          this.currentDate = now.toLocaleDateString('es-CL', {
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric'
+          });
+          this.currentTime = now.toLocaleTimeString('es-CL', {
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit',
+            hour12: false
+          });
+        },
+
+        get allCheckIds() {
+          const ids = [];
+          this.parks.forEach(p => ids.push('p_activa_' + p.id));
+          this.parks.forEach(p => ids.push('p_reactiva_' + p.id));
+          this.bessShiftingItems.forEach(i => ids.push(i.id));
+          this.ssccAgcItems.forEach(i => ids.push(i.id));
+          this.edagEragItems.forEach(i => ids.push(i.id));
+          this.wtgAlarmItems.forEach(i => ids.push(i.id));
+          return ids;
+        },
+
+        get totalCount() {
+          return this.allCheckIds.length;
+        },
+
+        get completedCount() {
+          return this.allCheckIds.filter(id => !!this.checkedItems[id]).length;
+        },
+
+        get progressPercent() {
+          if (this.totalCount === 0) return 0;
+          return Math.round((this.completedCount / this.totalCount) * 100);
+        },
+
+        isChecked(id) {
+          return !!this.checkedItems[id];
+        },
+
+        toggleCheck(id) {
+          this.checkedItems[id] = !this.checkedItems[id];
+          if (this.checkedItems[id]) {
+            const now = new Date();
+            this.checkTimestamps[id] = now.toLocaleTimeString('es-CL', {
+              hour: '2-digit',
+              minute: '2-digit',
+              hour12: false
+            });
+            if (navigator.vibrate) navigator.vibrate(12);
+          } else {
+            delete this.checkTimestamps[id];
+          }
+          this.saveState();
+        },
+
+        getSectionProgress(sectionKey) {
+          let ids = [];
+          if (sectionKey === 'p_activa') {
+            ids = this.parks.map(p => 'p_activa_' + p.id);
+          } else if (sectionKey === 'p_reactiva') {
+            ids = this.parks.map(p => 'p_reactiva_' + p.id);
+          } else if (sectionKey === 'bess_shifting') {
+            ids = this.bessShiftingItems.map(i => i.id);
+          } else if (sectionKey === 'sscc_agc') {
+            ids = this.ssccAgcItems.map(i => i.id);
+          } else if (sectionKey === 'edag_erag') {
+            ids = this.edagEragItems.map(i => i.id);
+          } else if (sectionKey === 'wtg_alarms') {
+            ids = this.wtgAlarmItems.map(i => i.id);
+          }
+          const done = ids.filter(id => !!this.checkedItems[id]).length;
+          return { done, total: ids.length };
+        },
+
+        toggleEntireSection(sectionKey) {
+          const ids = this.parks.map(p => sectionKey + '_' + p.id);
+          const allDone = ids.every(id => !!this.checkedItems[id]);
+          const nowStr = new Date().toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit', hour12: false });
+
+          ids.forEach(id => {
+            this.checkedItems[id] = !allDone;
+            if (!allDone) {
+              this.checkTimestamps[id] = nowStr;
+            } else {
+              delete this.checkTimestamps[id];
+            }
+          });
+          this.saveState();
+        },
+
+        filteredParks(techFilter, prefix) {
+          return this.parks.filter(p => {
+            const matchesTech = techFilter === 'ALL' || p.type === techFilter;
+            const matchesPending = !this.showOnlyPending || !this.isChecked(prefix + '_' + p.id);
+            return matchesTech && matchesPending;
+          });
+        },
+
+        getParkMode(key, fallback) {
+          return this.parkModes[key] || fallback;
+        },
+
+        cycleParkMode(key, options) {
+          const current = this.parkModes[key] || options[0];
+          const nextIdx = (options.indexOf(current) + 1) % options.length;
+          this.parkModes[key] = options[nextIdx];
+          this.saveState();
+        },
+
+        toggleAllAccordions() {
+          this.allExpanded = !this.allExpanded;
+          Object.keys(this.openSections).forEach(k => {
+            this.openSections[k] = this.allExpanded;
+          });
+        },
+
+        appendObservation(text) {
+          if (!this.observations) {
+            this.observations = '• ' + text;
+          } else {
+            this.observations = this.observations.trim() + '\n• ' + text;
+          }
+          this.saveState();
+        },
+
+        addNewPark() {
+          if (!this.newParkName.trim()) return;
+          const id = 'park_' + Date.now();
+          this.parks.push({
+            id,
+            type: this.newParkType,
+            name: this.newParkName.trim(),
+            mw: this.newParkMw.trim() || '0.0'
+          });
+          this.newParkName = '';
+          this.newParkMw = '';
+          this.saveState();
+        },
+
+        removePark(idx) {
+          this.parks.splice(idx, 1);
+          this.saveState();
+        },
+
+        resetDefaultParks() {
+          this.parks = JSON.parse(JSON.stringify(DEFAULT_PARKS));
+          this.saveState();
+        },
+
+        resetChecklist() {
+          this.checkedItems = {};
+          this.checkTimestamps = {};
+          this.parkModes = {};
+          this.bessSoc = {};
+          this.observations = '';
+          this.confirmResetModal = false;
+          this.saveState();
+        },
+
+        saveState() {
+          try {
+            const payload = {
+              operatorName: this.operatorName,
+              observations: this.observations,
+              parks: this.parks,
+              checkedItems: this.checkedItems,
+              checkTimestamps: this.checkTimestamps,
+              parkModes: this.parkModes,
+              bessSoc: this.bessSoc
+            };
+            localStorage.setItem('scada_checklist_state_v3', JSON.stringify(payload));
+          } catch (e) {}
+        },
+
+        loadState() {
+          try {
+            const histRaw = localStorage.getItem('scada_shift_history_v1');
+            if (histRaw) {
+              const parsedHist = JSON.parse(histRaw);
+              if (Array.isArray(parsedHist)) this.shiftHistory = parsedHist.slice(0, 30);
+            }
+          } catch (e) {}
+
+          try {
+            const raw = localStorage.getItem('scada_checklist_state_v3');
+            if (!raw) return;
+            const data = JSON.parse(raw);
+            if (typeof data.operatorName === 'string') this.operatorName = data.operatorName;
+            if (typeof data.observations === 'string') this.observations = data.observations;
+            if (Array.isArray(data.parks) && data.parks.length > 0) this.parks = data.parks;
+            if (data.checkedItems) this.checkedItems = data.checkedItems;
+            if (data.checkTimestamps) this.checkTimestamps = data.checkTimestamps;
+            if (data.parkModes) this.parkModes = data.parkModes;
+            if (data.bessSoc) this.bessSoc = data.bessSoc;
+          } catch (e) {}
+        },
+
+        get historyStorageSizeKb() {
+          try {
+            const bytes = JSON.stringify(this.shiftHistory).length;
+            return (bytes / 1024).toFixed(1) + ' KB';
+          } catch (e) {
+            return '0.0 KB';
+          }
+        },
+
+        saveShiftToHistory() {
+          const bessSummary = this.bessShiftingItems.map(i => {
+            const st = this.getParkMode('bess_state_' + i.id, 'Standby');
+            const soc = this.bessSoc[i.id] ? ` (${this.bessSoc[i.id]}%)` : '';
+            return `${i.name.replace('BESS ', '')}: ${st}${soc}`;
+          }).join(' | ');
+
+          const ssccSummary = this.ssccAgcItems.map(i => {
+            const st = this.getParkMode('sscc_mode_' + i.id, 'Solo CPF');
+            return `${i.name}: ${st}`;
+          }).join(' | ');
+
+          const edagSummary = this.edagEragItems.map(i => {
+            const ed = this.getParkMode('edag_state_' + i.id, 'EDAG ON');
+            const er = this.getParkMode('erag_state_' + i.id, 'ERAG ON');
+            return `${i.name.replace('PE ', '')}: ${ed}/${er}`;
+          }).join(' | ');
+
+          const pqExceptions = [];
+          this.parks.forEach(p => {
+            const pm = this.getParkMode('p_mode_' + p.id, 'P Nominal');
+            const qm = this.getParkMode('q_mode_' + p.id, 'Control V (kV)');
+            if (pm !== 'P Nominal') pqExceptions.push(`${p.name}: ${pm}`);
+            if (qm !== 'Control V (kV)') pqExceptions.push(`${p.name}: ${qm}`);
+          });
+
+          const entry = {
+            id: Date.now(),
+            dt: `${this.currentDate} ${this.currentTime}`,
+            op: this.operatorName.trim(),
+            done: this.completedCount,
+            total: this.totalCount,
+            pct: this.progressPercent,
+            bess: bessSummary,
+            sscc: ssccSummary,
+            edag: edagSummary,
+            exc: pqExceptions.join(' | '),
+            obs: this.observations.trim()
+          };
+
+          // Keep latest 30 entries maximum (ultralight auto-rotation)
+          this.shiftHistory = [entry, ...this.shiftHistory].slice(0, 30);
+          try {
+            localStorage.setItem('scada_shift_history_v1', JSON.stringify(this.shiftHistory));
+          } catch (e) {}
+
+          this.savedShiftToast = true;
+          if (navigator.vibrate) navigator.vibrate([15, 40, 15]);
+          setTimeout(() => { this.savedShiftToast = false; }, 2200);
+        },
+
+        deleteHistoryItem(idx) {
+          this.shiftHistory.splice(idx, 1);
+          try {
+            localStorage.setItem('scada_shift_history_v1', JSON.stringify(this.shiftHistory));
+          } catch (e) {}
+        },
+
+        clearAllHistory() {
+          this.shiftHistory = [];
+          try {
+            localStorage.removeItem('scada_shift_history_v1');
+          } catch (e) {}
+        },
+
+        async copyHistoryItem(entry) {
+          const text = [
+            `=== REPORTE TURNO ERNC (${entry.dt}) ===`,
+            `Operador: ${entry.op || 'No especificado'} | Cumplimiento: ${entry.done}/${entry.total} (${entry.pct}%)`,
+            `• BESS: ${entry.bess}`,
+            `• SSCC: ${entry.sscc}`,
+            `• EDAG/ERAG: ${entry.edag}`,
+            entry.exc ? `• Modos P/Q: ${entry.exc}` : null,
+            `• Observaciones: ${entry.obs || 'Sin observaciones.'}`,
+            `By Michael NB-γ`
+          ].filter(Boolean).join('\n');
+
+          try {
+            await navigator.clipboard.writeText(text);
+            alert('Resumen del turno copiado al portapapeles.');
+          } catch (e) {
+            alert(text);
+          }
+        },
+
+        buildReportText() {
+          const lines = [];
+          lines.push('==================================================');
+          lines.push('   REPORTE CHECKLIST DE INGRESO DE TURNO - ERNC   ');
+          lines.push('==================================================');
+          lines.push(`Fecha / Hora : ${this.currentDate} ${this.currentTime}`);
+          lines.push(`Operador     : ${this.operatorName || 'No especificado'}`);
+          lines.push(`Cumplimiento : ${this.completedCount}/${this.totalCount} (${this.progressPercent}%)`);
+          lines.push('--------------------------------------------------');
+
+          lines.push('\n1. CONSIGNAS DE POTENCIA ACTIVA (MW):');
+          this.parks.forEach(p => {
+            const ok = this.isChecked('p_activa_' + p.id) ? '[OK]' : '[PEND]';
+            const mode = this.getParkMode('p_mode_' + p.id, 'P Nominal');
+            lines.push(`  ${ok} ${p.name} (${p.mw} MW) - ${mode}`);
+          });
+
+          lines.push('\n2. CONSIGNAS DE POTENCIA REACTIVA (MVAr / kV):');
+          this.parks.forEach(p => {
+            const ok = this.isChecked('p_reactiva_' + p.id) ? '[OK]' : '[PEND]';
+            const mode = this.getParkMode('q_mode_' + p.id, 'Control V (kV)');
+            lines.push(`  ${ok} ${p.name} - ${mode}`);
+          });
+
+          lines.push('\n3. ENERGY SHIFTING EN BESS:');
+          this.bessShiftingItems.forEach(i => {
+            const ok = this.isChecked(i.id) ? '[OK]' : '[PEND]';
+            const state = this.getParkMode('bess_state_' + i.id, 'Standby');
+            const soc = this.bessSoc[i.id] ? ` | SoC: ${this.bessSoc[i.id]}%` : '';
+            lines.push(`  ${ok} ${i.name} - ${state}${soc}`);
+          });
+
+          lines.push('\n4. SSCC / CPF - AGC:');
+          this.ssccAgcItems.forEach(i => {
+            const ok = this.isChecked(i.id) ? '[OK]' : '[PEND]';
+            const mode = this.getParkMode('sscc_mode_' + i.id, 'Solo CPF');
+            lines.push(`  ${ok} ${i.name} (${i.category}) - ${mode}`);
+          });
+
+          lines.push('\n5. REVISIÓN EDAG / ERAG:');
+          this.edagEragItems.forEach(i => {
+            const ok = this.isChecked(i.id) ? '[OK]' : '[PEND]';
+            const edag = this.getParkMode('edag_state_' + i.id, 'EDAG ON');
+            const erag = this.getParkMode('erag_state_' + i.id, 'ERAG ON');
+            lines.push(`  ${ok} ${i.name} - ${edag} | ${erag}`);
+          });
+
+          lines.push('\n6. REVISIÓN DE ALARMAS WTG WIND:');
+          this.wtgAlarmItems.forEach(i => {
+            const ok = this.isChecked(i.id) ? '[OK]' : '[PEND]';
+            lines.push(`  ${ok} ${i.name}`);
+          });
+
+          lines.push('\n--------------------------------------------------');
+          lines.push('OBSERVACIONES DE TURNO:');
+          lines.push(this.observations ? this.observations : 'Sin observaciones registradas.');
+          lines.push('--------------------------------------------------');
+          lines.push('By Michael NB-γ');
+
+          return lines.join('\n');
+        },
+
+        async copyReportToClipboard() {
+          const text = this.buildReportText();
+          try {
+            await navigator.clipboard.writeText(text);
+            this.copiedToast = true;
+            setTimeout(() => { this.copiedToast = false; }, 2500);
+          } catch (e) {
+            alert('Reporte generado:\n\n' + text);
+          }
+        },
+
+        downloadReportTxt() {
+          const text = this.buildReportText();
+          const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          const safeDate = this.currentDate.replace(/\//g, '-');
+          a.href = url;
+          a.download = `Checklist_Ingreso_Turno_${safeDate}.txt`;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+        }
+      };
+    }
+  </script>
+</body>
+</html>
