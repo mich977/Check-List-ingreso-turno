@@ -4,6 +4,11 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <meta name="theme-color" content="#d1d5db" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <meta name="apple-mobile-web-app-title" content="Checklist ERNC" />
+  <link id="pwa-manifest" rel="manifest" />
   <title>Checklist de Ingreso de Turno | SCADA ERNC</title>
 
   <!-- Google Fonts: Inter & JetBrains Mono -->
@@ -25,6 +30,9 @@
       }
     }
   </script>
+
+  <!-- QRious Generator for Instant QR Code -->
+  <script src="https://cdn.jsdelivr.net/npm/qrious@4.0.2/dist/qrious.min.js"></script>
 
   <!-- Alpine.js & Collapse Plugin -->
   <script defer src="https://cdn.jsdelivr.net/npm/@alpinejs/collapse@3.x.x/dist/cdn.min.js"></script>
@@ -122,6 +130,14 @@
         </div>
 
         <div class="flex items-center gap-1.5 no-print shrink-0">
+          <!-- Botón QR e Instalar en Teléfono -->
+          <button @click="openQrModal = true; $nextTick(() => renderQrCode())"
+                  type="button"
+                  title="Código QR e Instalar en el Teléfono"
+                  class="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold bg-blue-800 hover:bg-blue-900 text-white border border-black active:scale-95 transition shadow-sm">
+            <span>📱 QR / App</span>
+          </button>
+
           <!-- Botón Historial Integrado -->
           <button @click="openHistoryModal = true"
                   type="button"
@@ -141,7 +157,8 @@
               <path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
               <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
             </svg>
-            <span>Tabla MW</span>
+            <span class="hidden sm:inline">Tabla MW</span>
+            <span class="sm:hidden">MW</span>
           </button>
         </div>
       </div>
@@ -1071,6 +1088,86 @@
     </div>
   </div>
 
+  <!-- ================= MODAL: CÓDIGO QR E INSTALAR EN EL TELÉFONO ================= -->
+  <div x-show="openQrModal"
+       x-cloak
+       class="fixed inset-0 z-50 flex items-center justify-center p-3 bg-black/60 backdrop-blur-sm">
+    <div @click.away="openQrModal = false"
+         class="bg-gray-200 border-2 border-black rounded-2xl max-w-md w-full max-h-[90vh] flex flex-col shadow-2xl overflow-hidden">
+
+      <div class="p-4 border-b-2 border-black bg-gray-300 flex items-center justify-between">
+        <div>
+          <h3 class="font-extrabold text-base text-blue-900">📱 Código QR e Instalar App</h3>
+          <p class="text-xs font-medium text-blue-800">Escanea con la cámara de tu celular e instálala en pantalla de inicio</p>
+        </div>
+        <button @click="openQrModal = false" class="p-1.5 rounded-lg text-blue-900 font-bold hover:bg-gray-100 border border-black">
+          ✕
+        </button>
+      </div>
+
+      <div class="p-4 overflow-y-auto space-y-3.5 flex-1 text-center">
+        <!-- QR Canvas Box -->
+        <div class="inline-flex flex-col items-center bg-white border-2 border-black rounded-2xl p-4 shadow-sm mx-auto">
+          <canvas id="qrCanvas" class="w-48 h-48"></canvas>
+          <span class="mt-2 font-mono text-[11px] font-bold text-blue-900">ESCANEAR CON EL CELULAR</span>
+        </div>
+
+        <!-- Editable URL for QR (auto-detects GitHub Pages URL or lets user paste it) -->
+        <div class="text-left space-y-1">
+          <label class="block text-xs font-bold text-blue-900">
+            Dirección Web (URL del QR):
+          </label>
+          <div class="flex gap-1.5">
+            <input type="text"
+                   x-model="qrUrl"
+                   @input="renderQrCode(); saveState()"
+                   placeholder="https://tu-usuario.github.io/checklist-turno/"
+                   class="flex-1 bg-white border border-black rounded-xl px-3 py-2 text-xs font-mono font-bold text-blue-900 placeholder-blue-400 focus:outline-none" />
+            <button type="button"
+                    @click="downloadQrImage()"
+                    class="px-3 py-2 rounded-xl bg-white hover:bg-gray-100 text-blue-900 border border-black text-xs font-bold shrink-0"
+                    title="Descargar imagen del QR">
+              ⬇️ PNG
+            </button>
+          </div>
+          <p class="text-[11px] text-blue-700 font-medium">
+            * Al subir el archivo a GitHub Pages, el QR toma automáticamente la dirección web publicada.
+          </p>
+        </div>
+
+        <!-- Direct PWA Install Button (when supported by Android/Chrome) -->
+        <div x-show="installPromptEvent" class="pt-1">
+          <button type="button"
+                  @click="triggerPwaInstall()"
+                  class="w-full py-3 px-4 rounded-xl font-extrabold text-sm bg-blue-800 hover:bg-blue-900 text-white border-2 border-black shadow-md active:scale-95 transition flex items-center justify-center gap-2">
+            <span>📲 Instalar Aplicación en este Teléfono</span>
+          </button>
+        </div>
+
+        <!-- Step-by-step Mobile Install Instructions -->
+        <div class="bg-gray-100 border border-black rounded-xl p-3 text-left space-y-2 text-xs text-blue-900">
+          <div class="font-extrabold text-blue-900 border-b border-black/20 pb-1">
+            📲 ¿Cómo dejarla instalada como App en tu teléfono?
+          </div>
+          <div>
+            <span class="font-bold">• En Android (Chrome):</span> Abre el enlace con el QR, toca los 3 puntos <span class="font-mono font-bold">[⋮]</span> arriba a la derecha y selecciona <span class="font-bold">"Instalar aplicación"</span> o <span class="font-bold">"Agregar a la pantalla principal"</span>.
+          </div>
+          <div>
+            <span class="font-bold">• En iPhone (Safari):</span> Abre el enlace con el QR, toca el botón <span class="font-bold">Compartir [📤]</span> abajo y selecciona <span class="font-bold">"Agregar a inicio"</span>.
+          </div>
+        </div>
+      </div>
+
+      <div class="p-3.5 border-t-2 border-black flex items-center justify-end bg-gray-300">
+        <button type="button"
+                @click="openQrModal = false"
+                class="px-5 py-2 rounded-xl bg-blue-800 text-white border border-black font-bold text-xs">
+          Listo
+        </button>
+      </div>
+    </div>
+  </div>
+
   <!-- ================= APPLICATION LOGIC ================= -->
   <script>
     const DEFAULT_PARKS = [
@@ -1111,10 +1208,13 @@
         allExpanded: true,
         openParksModal: false,
         openHistoryModal: false,
+        openQrModal: false,
         confirmResetModal: false,
         copiedToast: false,
         savedShiftToast: false,
         shiftHistory: [],
+        qrUrl: '',
+        installPromptEvent: null,
 
         techFilterP: 'ALL',
         techFilterQ: 'ALL',
@@ -1245,7 +1345,80 @@
         initApp() {
           this.updateClock();
           setInterval(() => this.updateClock(), 1000);
+          this.qrUrl = window.location.href;
           this.loadState();
+          if (window.location.protocol.startsWith('http')) {
+            this.qrUrl = window.location.href;
+          }
+          this.setupPwa();
+        },
+
+        setupPwa() {
+          // Listen for native Android/Chrome Install Prompt
+          window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            this.installPromptEvent = e;
+          });
+
+          // Generate dynamic Web App Manifest so single HTML file can be installed on phone
+          try {
+            const iconSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192"><rect width="192" height="192" rx="36" fill="#d1d5db" stroke="#000" stroke-width="10"/><rect x="32" y="32" width="128" height="128" rx="20" fill="#ffffff" stroke="#000" stroke-width="8"/><path d="M56 100l26 26 54-56" fill="none" stroke="#16a34a" stroke-width="18" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+            const iconDataUrl = 'data:image/svg+xml;base64,' + btoa(iconSvg);
+            const manifest = {
+              name: 'Checklist Ingreso de Turno ERNC',
+              short_name: 'Checklist ERNC',
+              start_url: window.location.href,
+              display: 'standalone',
+              background_color: '#d1d5db',
+              theme_color: '#d1d5db',
+              icons: [
+                {
+                  src: iconDataUrl,
+                  sizes: '192x192 512x512',
+                  type: 'image/svg+xml',
+                  purpose: 'any maskable'
+                }
+              ]
+            };
+            const blob = new Blob([JSON.stringify(manifest)], { type: 'application/manifest+json' });
+            const manifestEl = document.getElementById('pwa-manifest');
+            if (manifestEl) manifestEl.setAttribute('href', URL.createObjectURL(blob));
+          } catch (e) {}
+        },
+
+        renderQrCode() {
+          try {
+            const canvas = document.getElementById('qrCanvas');
+            if (!canvas || typeof QRious === 'undefined') return;
+            new QRious({
+              element: canvas,
+              value: (this.qrUrl || window.location.href).trim(),
+              size: 220,
+              level: 'M',
+              background: '#ffffff',
+              foreground: '#1e3a8a'
+            });
+          } catch (e) {}
+        },
+
+        downloadQrImage() {
+          try {
+            const canvas = document.getElementById('qrCanvas');
+            if (!canvas) return;
+            const a = document.createElement('a');
+            a.href = canvas.toDataURL('image/png');
+            a.download = 'QR_Checklist_Ingreso_Turno.png';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+          } catch (e) {}
+        },
+
+        async triggerPwaInstall() {
+          if (!this.installPromptEvent) return;
+          this.installPromptEvent.prompt();
+          await this.installPromptEvent.userChoice;
+          this.installPromptEvent = null;
         },
 
         updateClock() {
@@ -1420,7 +1593,8 @@
               checkedItems: this.checkedItems,
               checkTimestamps: this.checkTimestamps,
               parkModes: this.parkModes,
-              bessSoc: this.bessSoc
+              bessSoc: this.bessSoc,
+              qrUrl: this.qrUrl
             };
             localStorage.setItem('scada_checklist_state_v3', JSON.stringify(payload));
           } catch (e) {}
@@ -1446,6 +1620,7 @@
             if (data.checkTimestamps) this.checkTimestamps = data.checkTimestamps;
             if (data.parkModes) this.parkModes = data.parkModes;
             if (data.bessSoc) this.bessSoc = data.bessSoc;
+            if (typeof data.qrUrl === 'string' && data.qrUrl.trim()) this.qrUrl = data.qrUrl;
           } catch (e) {}
         },
 
