@@ -839,7 +839,7 @@
       <div class="flex items-center gap-2 font-mono font-extrabold text-sm tracking-wide text-blue-900">
         <span>By Michael NB-&gamma;</span>
         <span class="px-2 py-0.5 text-[11px] rounded-md bg-white border border-black text-blue-900 shadow-sm">
-          v2.0
+          v2.1
         </span>
       </div>
     </div>
@@ -1150,7 +1150,7 @@
         operatorName: '',
         observations: '',
         showOnlyPending: false,
-        allExpanded: true,
+        allExpanded: false,
         openParksModal: false,
         openHistoryModal: false,
         openQrModal: false,
@@ -1167,12 +1167,12 @@
         newParkType: 'SOLAR',
 
         openSections: {
-          s1: true,
+          s1: false,
           s2: false,
-          s3: true,
-          s4: true,
-          s5: true,
-          s6: true
+          s3: false,
+          s4: false,
+          s5: false,
+          s6: false
         },
 
         parks: JSON.parse(JSON.stringify(DEFAULT_PARKS)),
