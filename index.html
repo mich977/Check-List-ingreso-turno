@@ -133,12 +133,12 @@
             <span class="font-mono text-[10px]" x-text="shiftHistory.length"></span>
           </button>
 
-          <!-- Botón Tabla MW (Lectura libre / Escritura con Contraseña) -->
-          <button @click="openParksTable()"
+          <!-- Botón Tabla MW Fija -->
+          <button @click="openParksModal = true"
                   type="button"
-                  title="Ver Parques y MW de referencia (Edición protegida con contraseña)"
+                  title="Ver Tabla Fija de Setpoints MW"
                   class="inline-flex items-center gap-0.5 px-1.5 py-1 rounded-md text-[11px] font-bold bg-gray-200 hover:bg-gray-100 text-blue-900 border border-black active:scale-95 transition">
-            <span>⚙️ MW</span>
+            <span>📊 MW</span>
           </button>
         </div>
       </div>
@@ -256,9 +256,9 @@
 
           <div class="flex items-center gap-2">
             <button type="button"
-                    @click="openParksTable()"
+                    @click="openParksModal = true"
                     class="text-[11px] font-mono font-bold text-blue-900 hover:underline px-2 py-1">
-              ⚙️ Ver / Editar MW
+              📊 Tabla MW
             </button>
             <button type="button"
                     @click="toggleEntireSection('p_activa')"
