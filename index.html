@@ -148,9 +148,9 @@
         <span class="text-[11px] font-bold text-blue-900 shrink-0"
               x-text="progressPercent === 100 ? '✓ Verificado' : 'Progreso'"></span>
 
-        <div class="flex-1 h-2.5 bg-white rounded-full overflow-hidden border border-black p-0.5">
+        <div class="flex-1 h-3 bg-white rounded-full overflow-hidden border border-black p-0.5">
           <div class="h-full rounded-full transition-all duration-300 ease-out"
-               :class="progressPercent === 100 ? 'bg-green-600' : 'bg-blue-700'"
+               :class="progressPercent === 100 ? 'bg-green-700' : (progressPercent <= 40 ? 'bg-red-600' : 'bg-amber-600')"
                :style="`width: ${progressPercent}%`">
           </div>
         </div>
@@ -170,7 +170,7 @@
                class="flex-1 min-w-0 bg-white border border-black focus:border-blue-800 rounded-lg px-2 py-1 text-xs font-semibold text-blue-900 placeholder-blue-400 focus:outline-none" />
 
         <button type="button"
-                @click="showOnlyPending = !showOnlyPending"
+                @click="showOnlyPending = !showOnlyPending; if (showOnlyPending) { techFilterP = 'ALL'; techFilterQ = 'ALL'; }"
                 class="shrink-0 px-2 py-1 rounded-lg text-[11px] font-bold border border-black transition active:scale-95 flex items-center gap-1"
                 :class="showOnlyPending
                   ? 'bg-blue-800 text-white'
@@ -193,17 +193,23 @@
 
     <!-- ================= 6 KEY REVIEW ACCORDION SECTIONS ================= -->
 
+    <!-- Mensaje cuando el filtro pendientes está activo y ya se completó el 100% -->
+    <div x-show="showOnlyPending && completedCount === totalCount"
+         x-cloak
+         class="bg-green-700 text-white border-2 border-black rounded-2xl p-4 text-center font-extrabold text-sm shadow-md">
+      ✓ ¡Todos los ítems están verificados! No quedan pendientes en el checklist.
+    </div>
+
     <!-- SECTION 1: CONSIGNAS DE POTENCIA ACTIVA (SOLAR Y EÓLICA) -->
-    <section class="bg-gray-200 border-2 border-black rounded-2xl overflow-hidden shadow-md">
+    <section x-show="!showOnlyPending || getSectionProgress('p_activa').done < getSectionProgress('p_activa').total"
+             class="bg-gray-200 border-2 border-black rounded-2xl overflow-hidden shadow-md">
 
       <!-- Accordion Header -->
       <div class="p-3.5 flex items-center justify-between gap-2 cursor-pointer select-none bg-gray-300 hover:bg-gray-200 transition"
            @click="openSections.s1 = !openSections.s1">
         <div class="flex items-center gap-3 min-w-0">
-          <div class="w-10 h-10 rounded-xl flex items-center justify-center font-mono font-extrabold text-sm shrink-0 border-2 border-black"
-               :class="getSectionProgress('p_activa').done === getSectionProgress('p_activa').total
-                 ? 'bg-white text-green-700'
-                 : 'bg-white text-blue-900'">
+          <div class="w-10 h-10 rounded-xl flex items-center justify-center font-mono font-extrabold text-sm shrink-0 border-2 border-black transition-colors"
+               :class="getSectionBadgeClass('p_activa')">
             01
           </div>
           <div class="min-w-0">
@@ -229,7 +235,7 @@
       </div>
 
       <!-- Accordion Body -->
-      <div x-show="openSections.s1" x-collapse class="border-t-2 border-black p-3 space-y-3 bg-gray-200">
+      <div x-show="openSections.s1 || showOnlyPending" x-collapse class="border-t-2 border-black p-3 space-y-3 bg-gray-200">
 
         <!-- Sub-toolbar: Filter Solar / Eólica + Mark All Section -->
         <div class="flex flex-wrap items-center justify-between gap-2 bg-gray-300 p-2 rounded-xl border border-black">
@@ -325,16 +331,15 @@
     </section>
 
     <!-- SECTION 2: CONSIGNAS DE POTENCIA REACTIVA (SOLAR Y EÓLICA) -->
-    <section class="bg-gray-200 border-2 border-black rounded-2xl overflow-hidden shadow-md">
+    <section x-show="!showOnlyPending || getSectionProgress('p_reactiva').done < getSectionProgress('p_reactiva').total"
+             class="bg-gray-200 border-2 border-black rounded-2xl overflow-hidden shadow-md">
 
       <!-- Accordion Header -->
       <div class="p-3.5 flex items-center justify-between gap-2 cursor-pointer select-none bg-gray-300 hover:bg-gray-200 transition"
            @click="openSections.s2 = !openSections.s2">
         <div class="flex items-center gap-3 min-w-0">
-          <div class="w-10 h-10 rounded-xl flex items-center justify-center font-mono font-extrabold text-sm shrink-0 border-2 border-black"
-               :class="getSectionProgress('p_reactiva').done === getSectionProgress('p_reactiva').total
-                 ? 'bg-white text-green-700'
-                 : 'bg-white text-blue-900'">
+          <div class="w-10 h-10 rounded-xl flex items-center justify-center font-mono font-extrabold text-sm shrink-0 border-2 border-black transition-colors"
+               :class="getSectionBadgeClass('p_reactiva')">
             02
           </div>
           <div class="min-w-0">
@@ -360,7 +365,7 @@
       </div>
 
       <!-- Accordion Body -->
-      <div x-show="openSections.s2" x-collapse class="border-t-2 border-black p-3 space-y-3 bg-gray-200">
+      <div x-show="openSections.s2 || showOnlyPending" x-collapse class="border-t-2 border-black p-3 space-y-3 bg-gray-200">
 
         <!-- Sub-toolbar -->
         <div class="flex flex-wrap items-center justify-between gap-2 bg-gray-300 p-2 rounded-xl border border-black">
@@ -443,16 +448,15 @@
     </section>
 
     <!-- SECTION 3: REVISIÓN DE ENERGY SHIFTING EN BESS -->
-    <section class="bg-gray-200 border-2 border-black rounded-2xl overflow-hidden shadow-md">
+    <section x-show="!showOnlyPending || getSectionProgress('bess_shifting').done < getSectionProgress('bess_shifting').total"
+             class="bg-gray-200 border-2 border-black rounded-2xl overflow-hidden shadow-md">
 
       <!-- Accordion Header -->
       <div class="p-3.5 flex items-center justify-between gap-2 cursor-pointer select-none bg-gray-300 hover:bg-gray-200 transition"
            @click="openSections.s3 = !openSections.s3">
         <div class="flex items-center gap-3 min-w-0">
-          <div class="w-10 h-10 rounded-xl flex items-center justify-center font-mono font-extrabold text-sm shrink-0 border-2 border-black"
-               :class="getSectionProgress('bess_shifting').done === getSectionProgress('bess_shifting').total
-                 ? 'bg-white text-green-700'
-                 : 'bg-white text-blue-900'">
+          <div class="w-10 h-10 rounded-xl flex items-center justify-center font-mono font-extrabold text-sm shrink-0 border-2 border-black transition-colors"
+               :class="getSectionBadgeClass('bess_shifting')">
             03
           </div>
           <div class="min-w-0">
@@ -478,7 +482,7 @@
       </div>
 
       <!-- Accordion Body -->
-      <div x-show="openSections.s3" x-collapse class="border-t-2 border-black p-3 space-y-2.5 bg-gray-200">
+      <div x-show="openSections.s3 || showOnlyPending" x-collapse class="border-t-2 border-black p-3 space-y-2.5 bg-gray-200">
         <template x-for="item in bessShiftingItems" :key="item.id">
           <div @click="toggleCheck(item.id)"
                x-show="!showOnlyPending || !isChecked(item.id)"
@@ -534,16 +538,15 @@
     </section>
 
     <!-- SECTION 4: REVISIÓN DE SSCC / CPF - AGC -->
-    <section class="bg-gray-200 border-2 border-black rounded-2xl overflow-hidden shadow-md">
+    <section x-show="!showOnlyPending || getSectionProgress('sscc_agc').done < getSectionProgress('sscc_agc').total"
+             class="bg-gray-200 border-2 border-black rounded-2xl overflow-hidden shadow-md">
 
       <!-- Accordion Header -->
       <div class="p-3.5 flex items-center justify-between gap-2 cursor-pointer select-none bg-gray-300 hover:bg-gray-200 transition"
            @click="openSections.s4 = !openSections.s4">
         <div class="flex items-center gap-3 min-w-0">
-          <div class="w-10 h-10 rounded-xl flex items-center justify-center font-mono font-extrabold text-sm shrink-0 border-2 border-black"
-               :class="getSectionProgress('sscc_agc').done === getSectionProgress('sscc_agc').total
-                 ? 'bg-white text-green-700'
-                 : 'bg-white text-blue-900'">
+          <div class="w-10 h-10 rounded-xl flex items-center justify-center font-mono font-extrabold text-sm shrink-0 border-2 border-black transition-colors"
+               :class="getSectionBadgeClass('sscc_agc')">
             04
           </div>
           <div class="min-w-0">
@@ -569,7 +572,7 @@
       </div>
 
       <!-- Accordion Body -->
-      <div x-show="openSections.s4" x-collapse class="border-t-2 border-black p-3 space-y-2.5 bg-gray-200">
+      <div x-show="openSections.s4 || showOnlyPending" x-collapse class="border-t-2 border-black p-3 space-y-2.5 bg-gray-200">
         <template x-for="item in ssccAgcItems" :key="item.id">
           <div @click="toggleCheck(item.id)"
                x-show="!showOnlyPending || !isChecked(item.id)"
@@ -601,9 +604,9 @@
             <!-- Status Pill (CPF / AGC) -->
             <div class="shrink-0" @click.stop>
               <button type="button"
-                      @click="cycleParkMode('sscc_mode_' + item.id, ['Solo CPF', 'Solo AGC', 'CPF + AGC', 'Sin SSCC'])"
+                      @click="cycleParkMode('sscc_mode_' + item.id, ['Sin SSCC', 'Solo CPF', 'Solo AGC', 'CPF + AGC'])"
                       class="text-[11px] font-mono font-bold px-2.5 py-1.5 rounded-lg border border-black bg-white text-blue-900 hover:bg-gray-100 transition"
-                      x-text="getParkMode('sscc_mode_' + item.id, 'Solo CPF')">
+                      x-text="getParkMode('sscc_mode_' + item.id, 'Sin SSCC')">
               </button>
             </div>
 
@@ -613,16 +616,15 @@
     </section>
 
     <!-- SECTION 5: REVISIÓN EDAG / ERAG (PARQUES EÓLICOS) -->
-    <section class="bg-gray-200 border-2 border-black rounded-2xl overflow-hidden shadow-md">
+    <section x-show="!showOnlyPending || getSectionProgress('edag_erag').done < getSectionProgress('edag_erag').total"
+             class="bg-gray-200 border-2 border-black rounded-2xl overflow-hidden shadow-md">
 
       <!-- Accordion Header -->
       <div class="p-3.5 flex items-center justify-between gap-2 cursor-pointer select-none bg-gray-300 hover:bg-gray-200 transition"
            @click="openSections.s5 = !openSections.s5">
         <div class="flex items-center gap-3 min-w-0">
-          <div class="w-10 h-10 rounded-xl flex items-center justify-center font-mono font-extrabold text-sm shrink-0 border-2 border-black"
-               :class="getSectionProgress('edag_erag').done === getSectionProgress('edag_erag').total
-                 ? 'bg-white text-green-700'
-                 : 'bg-white text-blue-900'">
+          <div class="w-10 h-10 rounded-xl flex items-center justify-center font-mono font-extrabold text-sm shrink-0 border-2 border-black transition-colors"
+               :class="getSectionBadgeClass('edag_erag')">
             05
           </div>
           <div class="min-w-0">
@@ -648,7 +650,7 @@
       </div>
 
       <!-- Accordion Body -->
-      <div x-show="openSections.s5" x-collapse class="border-t-2 border-black p-3 space-y-2.5 bg-gray-200">
+      <div x-show="openSections.s5 || showOnlyPending" x-collapse class="border-t-2 border-black p-3 space-y-2.5 bg-gray-200">
         <template x-for="item in edagEragItems" :key="item.id">
           <div @click="toggleCheck(item.id)"
                x-show="!showOnlyPending || !isChecked(item.id)"
@@ -704,16 +706,15 @@
     </section>
 
     <!-- SECTION 6: REVISIÓN DE ALARMAS WTG WIND -->
-    <section class="bg-gray-200 border-2 border-black rounded-2xl overflow-hidden shadow-md">
+    <section x-show="!showOnlyPending || getSectionProgress('wtg_alarms').done < getSectionProgress('wtg_alarms').total"
+             class="bg-gray-200 border-2 border-black rounded-2xl overflow-hidden shadow-md">
 
       <!-- Accordion Header -->
       <div class="p-3.5 flex items-center justify-between gap-2 cursor-pointer select-none bg-gray-300 hover:bg-gray-200 transition"
            @click="openSections.s6 = !openSections.s6">
         <div class="flex items-center gap-3 min-w-0">
-          <div class="w-10 h-10 rounded-xl flex items-center justify-center font-mono font-extrabold text-sm shrink-0 border-2 border-black"
-               :class="getSectionProgress('wtg_alarms').done === getSectionProgress('wtg_alarms').total
-                 ? 'bg-white text-green-700'
-                 : 'bg-white text-blue-900'">
+          <div class="w-10 h-10 rounded-xl flex items-center justify-center font-mono font-extrabold text-sm shrink-0 border-2 border-black transition-colors"
+               :class="getSectionBadgeClass('wtg_alarms')">
             06
           </div>
           <div class="min-w-0">
@@ -739,7 +740,7 @@
       </div>
 
       <!-- Accordion Body -->
-      <div x-show="openSections.s6" x-collapse class="border-t-2 border-black p-3 space-y-2.5 bg-gray-200">
+      <div x-show="openSections.s6 || showOnlyPending" x-collapse class="border-t-2 border-black p-3 space-y-2.5 bg-gray-200">
         <template x-for="item in wtgAlarmItems" :key="item.id">
           <div @click="toggleCheck(item.id)"
                x-show="!showOnlyPending || !isChecked(item.id)"
@@ -838,7 +839,7 @@
       <div class="flex items-center gap-2 font-mono font-extrabold text-sm tracking-wide text-blue-900">
         <span>By Michael NB-&gamma;</span>
         <span class="px-2 py-0.5 text-[11px] rounded-md bg-white border border-black text-blue-900 shadow-sm">
-          v1.5
+          v2.0
         </span>
       </div>
     </div>
@@ -1441,6 +1442,17 @@
           return { done, total: ids.length };
         },
 
+        getSectionBadgeClass(sectionKey) {
+          const { done, total } = this.getSectionProgress(sectionKey);
+          if (done === total && total > 0) {
+            return 'bg-green-700 text-white';
+          }
+          if (done === 0) {
+            return 'bg-red-600 text-white';
+          }
+          return 'bg-amber-600 text-white';
+        },
+
         toggleEntireSection(sectionKey) {
           const ids = this.parks.map(p => sectionKey + '_' + p.id);
           const allDone = ids.every(id => !!this.checkedItems[id]);
@@ -1560,7 +1572,7 @@
           }).join(' | ');
 
           const ssccSummary = this.ssccAgcItems.map(i => {
-            const st = this.getParkMode('sscc_mode_' + i.id, 'Solo CPF');
+            const st = this.getParkMode('sscc_mode_' + i.id, 'Sin SSCC');
             return `${i.name}: ${st}`;
           }).join(' | ');
 
@@ -1672,7 +1684,7 @@
           lines.push('\n4. SSCC / CPF - AGC:');
           this.ssccAgcItems.forEach(i => {
             const ok = this.isChecked(i.id) ? '[OK]' : '[PEND]';
-            const mode = this.getParkMode('sscc_mode_' + i.id, 'Solo CPF');
+            const mode = this.getParkMode('sscc_mode_' + i.id, 'Sin SSCC');
             lines.push(`  ${ok} ${i.name} (${i.category}) - ${mode}`);
           });
 
