@@ -835,8 +835,11 @@
         <span class="w-2.5 h-2.5 rounded-full bg-blue-800 border border-black"></span>
         <span>Sistema de Control y Despacho de Carga ERNC</span>
       </div>
-      <div class="font-mono font-extrabold text-sm tracking-wide text-blue-900">
-        By Michael NB-&gamma;
+      <div class="flex items-center gap-2 font-mono font-extrabold text-sm tracking-wide text-blue-900">
+        <span>By Michael NB-&gamma;</span>
+        <span class="px-2 py-0.5 text-[11px] rounded-md bg-white border border-black text-blue-900 shadow-sm">
+          v1.5
+        </span>
       </div>
     </div>
   </footer>
@@ -845,163 +848,68 @@
   <div x-show="openParksModal"
        x-cloak
        class="fixed inset-0 z-50 flex items-center justify-center p-3 bg-black/60 backdrop-blur-sm">
-    <div @click.away="if (!openPasswordModal) { openParksModal = false; mwEditUnlocked = false; }"
+    <div @click.away="openParksModal = false"
          class="bg-gray-200 border-2 border-black rounded-2xl max-w-xl w-full max-h-[88vh] flex flex-col shadow-2xl overflow-hidden">
 
       <div class="p-3.5 border-b-2 border-black bg-gray-300 flex items-center justify-between gap-2">
         <div>
-          <div class="flex items-center gap-2 flex-wrap">
-            <h3 class="font-extrabold text-sm sm:text-base text-blue-900">Tabla de Referencia: Parques y MW</h3>
-            <button type="button"
-                    @click="mwEditUnlocked ? (mwEditUnlocked = false) : requestParksAccess()"
-                    class="px-2 py-0.5 rounded-md text-[10px] font-mono font-extrabold border border-black transition"
-                    :class="mwEditUnlocked ? 'bg-green-700 text-white' : 'bg-white text-blue-900 hover:bg-gray-100'"
-                    x-text="mwEditUnlocked ? '🔓 Edición activa' : '🔒 Solo lectura (Toca para editar)'">
-            </button>
-          </div>
+          <h3 class="font-extrabold text-sm sm:text-base text-blue-900">📊 Tabla Fija de Setpoints (MW)</h3>
           <p class="text-[11px] font-medium text-blue-800 mt-0.5">
-            Visualización libre • Para escribir o modificar valores se solicita contraseña
+            Valores oficiales fijos por parque Solar (PFV) y Eólico (WIND)
           </p>
         </div>
-        <button @click="openParksModal = false; mwEditUnlocked = false" class="p-1.5 rounded-lg text-blue-900 font-bold hover:bg-gray-100 border border-black shrink-0">
+        <button @click="openParksModal = false" class="p-1.5 rounded-lg text-blue-900 font-bold hover:bg-gray-100 border border-black shrink-0">
           ✕
         </button>
       </div>
 
-      <div class="p-4 overflow-y-auto space-y-3 flex-1">
-        <!-- Add New Park Form & Filter by Type -->
-        <div class="bg-gray-300 border border-black p-3 rounded-xl grid grid-cols-1 sm:grid-cols-12 gap-2">
-          <select x-model="newParkType"
-                  class="sm:col-span-3 bg-white border border-black rounded-lg px-2.5 py-2 text-xs font-bold text-blue-900 cursor-pointer">
-            <option value="SOLAR">☀️ Solar (PFV)</option>
-            <option value="EOLICA">💨 Eólica (PE)</option>
-          </select>
-          <input type="text"
-                 x-model="newParkName"
-                 :readonly="!mwEditUnlocked"
-                 @mousedown="requireMwUnlock($event)"
-                 @focus="requireMwUnlock($event)"
-                 :placeholder="newParkType === 'SOLAR' ? 'Nombre del Parque (ej. PFV Campos del Sol)' : 'Nombre del Parque (ej. PE Renaico I)'"
-                 class="sm:col-span-5 bg-white border border-black rounded-lg px-2.5 py-2 text-xs font-semibold text-blue-900 placeholder-blue-400" />
-          <input type="text"
-                 x-model="newParkMw"
-                 :readonly="!mwEditUnlocked"
-                 @mousedown="requireMwUnlock($event)"
-                 @focus="requireMwUnlock($event)"
-                 placeholder="MW (ej. 375)"
-                 class="sm:col-span-2 bg-white border border-black rounded-lg px-2.5 py-2 text-xs font-mono font-bold text-blue-900 placeholder-blue-400" />
+      <div class="p-3.5 overflow-y-auto space-y-3 flex-1">
+        <!-- Technology Selector Tabs -->
+        <div class="grid grid-cols-2 gap-2 bg-gray-300 border border-black p-1.5 rounded-xl">
           <button type="button"
-                  @click="mwEditUnlocked ? addNewPark() : requestParksAccess()"
-                  class="sm:col-span-2 bg-blue-800 hover:bg-blue-900 text-white font-bold text-xs rounded-lg py-2 px-3 border border-black transition">
-            + Agregar
+                  @click="newParkType = 'SOLAR'"
+                  class="py-1.5 px-3 rounded-lg text-xs font-extrabold border transition"
+                  :class="newParkType === 'SOLAR' ? 'bg-blue-800 text-white border-black shadow-sm' : 'bg-white text-blue-900 border-black hover:bg-gray-100'">
+            ☀️ SOLAR (12)
+          </button>
+          <button type="button"
+                  @click="newParkType = 'EOLICA'"
+                  class="py-1.5 px-3 rounded-lg text-xs font-extrabold border transition"
+                  :class="newParkType === 'EOLICA' ? 'bg-blue-800 text-white border-black shadow-sm' : 'bg-white text-blue-900 border-black hover:bg-gray-100'">
+            💨 WIND (11)
           </button>
         </div>
 
-        <!-- Existing Parks Editable Table (Filtered by Selected Type) -->
-        <div class="space-y-1.5">
-          <template x-for="(p, idx) in parks" :key="p.id">
-            <div x-show="p.type === newParkType"
-                 class="flex items-center justify-between gap-2 bg-gray-100 border border-black rounded-xl px-3 py-2">
-              <div class="flex items-center gap-2 min-w-0 flex-1">
-                <button type="button"
-                        @click="mwEditUnlocked ? (p.type = (p.type === 'SOLAR' ? 'EOLICA' : 'SOLAR'), saveState()) : requestParksAccess()"
-                        class="text-[10px] font-mono font-bold px-2 py-1 rounded border border-black bg-white text-blue-900 shrink-0"
-                        x-text="p.type === 'SOLAR' ? '☀️ PFV' : '💨 PE'"></button>
-                <input type="text"
-                       x-model="p.name"
-                       :readonly="!mwEditUnlocked"
-                       @mousedown="requireMwUnlock($event)"
-                       @focus="requireMwUnlock($event)"
-                       @input="if (mwEditUnlocked) saveState()"
-                       class="bg-transparent text-xs sm:text-sm font-bold text-blue-900 focus:outline-none border-b border-transparent focus:border-blue-800 w-full" />
-              </div>
-
-              <div class="flex items-center gap-2 shrink-0">
-                <div class="flex items-center bg-white border border-black rounded-lg px-2 py-1">
-                  <input type="text"
-                         x-model="p.mw"
-                         :readonly="!mwEditUnlocked"
-                         @mousedown="requireMwUnlock($event)"
-                         @focus="requireMwUnlock($event)"
-                         @input="if (mwEditUnlocked) saveState()"
-                         class="w-14 bg-transparent font-mono text-xs font-bold text-blue-900 text-right focus:outline-none" />
-                  <span class="text-[10px] font-mono font-bold text-blue-800 ml-1">MW</span>
+        <!-- Fixed Parks Table (Filtered by Selected Type) -->
+        <div class="bg-white border-2 border-black rounded-xl overflow-hidden">
+          <div class="grid grid-cols-12 bg-gray-300 border-b-2 border-black px-3 py-1.5 text-[11px] font-extrabold text-blue-900 uppercase">
+            <div class="col-span-3">Tecnología</div>
+            <div class="col-span-6">Parque</div>
+            <div class="col-span-3 text-right">Setpoint</div>
+          </div>
+          <div class="divide-y divide-black/20">
+            <template x-for="p in parks" :key="p.id">
+              <div x-show="p.type === newParkType"
+                   class="grid grid-cols-12 items-center px-3 py-2 text-xs hover:bg-gray-100">
+                <div class="col-span-3 font-mono font-bold text-[11px] text-blue-800"
+                     x-text="p.type === 'SOLAR' ? '☀️ SOLAR' : '💨 WIND'"></div>
+                <div class="col-span-6 font-extrabold text-blue-900 truncate"
+                     x-text="p.name"></div>
+                <div class="col-span-3 text-right font-mono font-extrabold text-blue-900">
+                  <span class="bg-gray-200 border border-black rounded px-2 py-0.5"
+                        x-text="p.mw + ' MW'"></span>
                 </div>
-                <button type="button"
-                        @click="mwEditUnlocked ? removePark(idx) : requestParksAccess()"
-                        class="text-blue-900 hover:text-red-700 p-1 text-xs font-bold"
-                        title="Eliminar parque">
-                  🗑️
-                </button>
               </div>
-            </div>
-          </template>
+            </template>
+          </div>
         </div>
       </div>
 
-      <div class="p-3.5 border-t-2 border-black flex flex-wrap items-center justify-between gap-2 bg-gray-300">
+      <div class="p-3 border-t-2 border-black flex items-center justify-end bg-gray-300">
         <button type="button"
-                @click="mwEditUnlocked ? resetDefaultParks() : requestParksAccess()"
-                class="text-xs font-bold text-blue-900 hover:underline">
-          Restaurar por defecto
-        </button>
-        <div class="flex items-center gap-2">
-          <button type="button"
-                  x-show="mwEditUnlocked"
-                  @click="downloadUpdatedIndexHtml()"
-                  class="px-3 py-2 rounded-xl bg-white hover:bg-gray-100 text-blue-900 border-2 border-black font-extrabold text-xs shadow-sm active:scale-95 transition"
-                  title="Descarga un nuevo archivo index.html con estos MW grabados como base para subir a GitHub">
-            💾 Descargar index.html base
-          </button>
-          <button type="button"
-                  @click="openParksModal = false; mwEditUnlocked = false"
-                  class="px-4 py-2 rounded-xl bg-blue-800 text-white border border-black font-bold text-xs">
-            Cerrar
-          </button>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- ================= MODAL: CONTRASEÑA PARA EDITAR MW (1982M) ================= -->
-  <div x-show="openPasswordModal"
-       x-cloak
-       class="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-    <div @click.away="openPasswordModal = false"
-         class="bg-gray-200 border-2 border-black rounded-2xl max-w-xs w-full p-4 text-center space-y-3.5 shadow-2xl">
-      <div class="w-11 h-11 rounded-full bg-white border-2 border-black text-blue-900 flex items-center justify-center mx-auto text-lg">
-        🔒
-      </div>
-      <div>
-        <h3 class="font-extrabold text-sm text-blue-900">Desbloquear Edición de MW</h3>
-        <p class="text-[11px] font-medium text-blue-800 mt-0.5">
-          Ingresa la contraseña para escribir o modificar los valores MW.
-        </p>
-      </div>
-      <div class="space-y-1.5 text-left">
-        <input type="password"
-               x-ref="mwPassInput"
-               x-model="mwPasswordInput"
-               @keydown.enter.prevent="verifyMwPassword()"
-               @input="mwPasswordError = false"
-               placeholder="Contraseña..."
-               class="w-full bg-white border-2 border-black rounded-xl px-3 py-2 text-center font-mono font-extrabold text-sm text-blue-900 placeholder-blue-400 focus:outline-none" />
-        <p x-show="mwPasswordError"
-           x-cloak
-           class="text-[11px] font-extrabold text-red-700 text-center">
-          ❌ Contraseña incorrecta. Intenta nuevamente.
-        </p>
-      </div>
-      <div class="grid grid-cols-2 gap-2">
-        <button type="button"
-                @click="openPasswordModal = false"
-                class="py-2 rounded-xl text-xs font-bold bg-white text-blue-900 border border-black hover:bg-gray-100">
-          Cancelar
-        </button>
-        <button type="button"
-                @click="verifyMwPassword()"
-                class="py-2 rounded-xl text-xs font-extrabold bg-blue-800 hover:bg-blue-900 text-white border border-black">
-          Desbloquear
+                @click="openParksModal = false"
+                class="px-5 py-2 rounded-xl bg-blue-800 text-white border border-black font-bold text-xs">
+          Cerrar
         </button>
       </div>
     </div>
@@ -1205,37 +1113,34 @@
 
   <!-- ================= APPLICATION LOGIC ================= -->
   <script>
-    const INITIAL_DOCUMENT_HTML = '<!DOCTYPE html>\n' + document.documentElement.outerHTML;
-
-    /*DEFAULT_PARKS_START*/
     const DEFAULT_PARKS = [
-      // Parques Solares (PFV)
-      { id: 'pfv_chanares', type: 'SOLAR', name: 'PFV Chañares', mw: '40.0' },
-      { id: 'pfv_finis_terrae', type: 'SOLAR', name: 'PFV Finis Terrae', mw: '160.0' },
-      { id: 'pfv_lalackama', type: 'SOLAR', name: 'PFV Lalackama', mw: '78.0' },
-      { id: 'pfv_sol_de_lila', type: 'SOLAR', name: 'PFV Sol de Lila', mw: '161.0' },
-      { id: 'pfv_azabache', type: 'SOLAR', name: 'PFV Azabache', mw: '60.9' },
-      { id: 'pfv_campos_del_sol', type: 'SOLAR', name: 'PFV Campos del Sol', mw: '375.0' },
-      { id: 'pfv_valle_del_sol', type: 'SOLAR', name: 'PFV Valle del Sol', mw: '163.0' },
-      { id: 'pfv_guanchoi', type: 'SOLAR', name: 'PFV Guanchoi', mw: '398.0' },
-      { id: 'pfv_las_salinas', type: 'SOLAR', name: 'PFV Las Salinas', mw: '205.0' },
-      { id: 'pfv_la_silla', type: 'SOLAR', name: 'PFV La Silla', mw: '1.7' },
-      { id: 'pfv_don_humberto', type: 'SOLAR', name: 'PFV Don Humberto', mw: '81.0' },
-      { id: 'pfv_el_manzano', type: 'SOLAR', name: 'PFV El Manzano', mw: '88.0' },
+      // Parques Solares (PFV) — Valores Fijos Oficiales
+      { id: 'pfv_chanares', type: 'SOLAR', name: 'PFV Chañares', mw: '36' },
+      { id: 'pfv_finis_terrae', type: 'SOLAR', name: 'PFV Finis Terrae', mw: '250' },
+      { id: 'pfv_lalackama', type: 'SOLAR', name: 'PFV Lalackama', mw: '72' },
+      { id: 'pfv_sol_de_lila', type: 'SOLAR', name: 'PFV Sol de Lila', mw: '162' },
+      { id: 'pfv_azabache', type: 'SOLAR', name: 'PFV Azabache', mw: '59' },
+      { id: 'pfv_campos_del_sol', type: 'SOLAR', name: 'PFV Campos del Sol', mw: '372' },
+      { id: 'pfv_valle_del_sol', type: 'SOLAR', name: 'PFV Valle del Sol', mw: '153' },
+      { id: 'pfv_guanchoi', type: 'SOLAR', name: 'PFV Guanchoi', mw: '367' },
+      { id: 'pfv_las_salinas', type: 'SOLAR', name: 'PFV Las Salinas', mw: '203' },
+      { id: 'pfv_la_silla', type: 'SOLAR', name: 'PFV La Silla', mw: '2' },
+      { id: 'pfv_el_manzano', type: 'SOLAR', name: 'PFV El Manzano', mw: '88' },
+      { id: 'pfv_don_humberto', type: 'SOLAR', name: 'PFV Don Humberto', mw: '81' },
 
-      // Parques Eólicos (PE)
-      { id: 'pe_los_buenos_aires', type: 'EOLICA', name: 'PE Los Buenos Aires', mw: '24.0' },
-      { id: 'pe_canela_1', type: 'EOLICA', name: 'PE Canela 1', mw: '18.1' },
-      { id: 'pe_canela_2', type: 'EOLICA', name: 'PE Canela 2', mw: '60.0' },
-      { id: 'pe_renaico_1', type: 'EOLICA', name: 'PE Renaico I', mw: '88.0' },
-      { id: 'pe_renaico_2', type: 'EOLICA', name: 'PE Renaico II', mw: '144.0' },
-      { id: 'pe_sierra_gorda', type: 'EOLICA', name: 'PE Sierra Gorda', mw: '112.0' },
-      { id: 'pe_talinay_oriente', type: 'EOLICA', name: 'PE Talinay Oriente', mw: '90.0' },
-      { id: 'pe_talinay_poniente', type: 'EOLICA', name: 'PE Talinay Poniente', mw: '61.0' },
-      { id: 'pe_taltal', type: 'EOLICA', name: 'PE Taltal', mw: '99.0' },
-      { id: 'pe_valle_de_los_vientos', type: 'EOLICA', name: 'PE Valle de los Vientos', mw: '90.0' }
+      // Parques Eólicos (WIND / PE) — Valores Fijos Oficiales
+      { id: 'pe_los_buenos_aires', type: 'EOLICA', name: 'PE Los Buenos Aires', mw: '24' },
+      { id: 'pe_canela_1', type: 'EOLICA', name: 'PE Canela I', mw: '18' },
+      { id: 'pe_canela_2', type: 'EOLICA', name: 'PE Canela II', mw: '60' },
+      { id: 'pe_renaico_1', type: 'EOLICA', name: 'PE Renaico I', mw: '88' },
+      { id: 'pe_renaico_2', type: 'EOLICA', name: 'PE Renaico II', mw: '144' },
+      { id: 'pe_sierra_gorda', type: 'EOLICA', name: 'PE Sierra Gorda Este', mw: '112' },
+      { id: 'pe_talinay_oriente', type: 'EOLICA', name: 'PE Talinay Oriente', mw: '90' },
+      { id: 'pe_talinay_poniente', type: 'EOLICA', name: 'PE Talinay Poniente', mw: '60' },
+      { id: 'pe_taltal', type: 'EOLICA', name: 'PE Taltal', mw: '102' },
+      { id: 'pe_valle_de_los_vientos', type: 'EOLICA', name: 'PE Valle de los Vientos', mw: '90' },
+      { id: 'pe_la_cabana', type: 'EOLICA', name: 'PE La Cabaña', mw: '105' }
     ];
-    /*DEFAULT_PARKS_END*/
 
     function scadaChecklist() {
       return {
@@ -1246,11 +1151,6 @@
         showOnlyPending: false,
         allExpanded: true,
         openParksModal: false,
-        openPasswordModal: false,
-        mwEditUnlocked: false,
-        pendingEditTarget: null,
-        mwPasswordInput: '',
-        mwPasswordError: false,
         openHistoryModal: false,
         openQrModal: false,
         confirmResetModal: false,
@@ -1264,8 +1164,6 @@
         techFilterQ: 'ALL',
 
         newParkType: 'SOLAR',
-        newParkName: '',
-        newParkMw: '',
 
         openSections: {
           s1: true,
@@ -1594,95 +1492,6 @@
           this.saveState();
         },
 
-        openParksTable() {
-          this.mwEditUnlocked = false;
-          this.pendingEditTarget = null;
-          this.openParksModal = true;
-        },
-
-        requireMwUnlock(event) {
-          if (this.mwEditUnlocked) return;
-          if (event && event.target) {
-            this.pendingEditTarget = event.target;
-            event.target.blur();
-          }
-          if (!this.openPasswordModal) {
-            this.requestParksAccess();
-          }
-        },
-
-        requestParksAccess() {
-          this.mwPasswordInput = '';
-          this.mwPasswordError = false;
-          this.openPasswordModal = true;
-          setTimeout(() => {
-            if (this.$refs.mwPassInput) this.$refs.mwPassInput.focus();
-          }, 60);
-        },
-
-        verifyMwPassword() {
-          if (this.mwPasswordInput.trim().toUpperCase() === '1982M') {
-            this.mwEditUnlocked = true;
-            this.openPasswordModal = false;
-            this.mwPasswordInput = '';
-            this.mwPasswordError = false;
-            const target = this.pendingEditTarget;
-            this.pendingEditTarget = null;
-            if (target) {
-              setTimeout(() => {
-                target.focus();
-                if (typeof target.select === 'function') target.select();
-              }, 60);
-            }
-          } else {
-            this.mwPasswordError = true;
-            if (navigator.vibrate) navigator.vibrate([40, 30, 40]);
-          }
-        },
-
-        downloadUpdatedIndexHtml() {
-          this.saveState();
-          const formattedParks = JSON.stringify(this.parks, null, 6);
-          const replacementBlock = `/*DEFAULT_PARKS_START*/\n    const DEFAULT_PARKS = ${formattedParks};\n    /*DEFAULT_PARKS_END*/`;
-          const updatedHtml = INITIAL_DOCUMENT_HTML.replace(
-            /\/\*DEFAULT_PARKS_START\*\/[\s\S]*?\/\*DEFAULT_PARKS_END\*\//,
-            replacementBlock
-          );
-          const blob = new Blob([updatedHtml], { type: 'text/html;charset=utf-8' });
-          const url = URL.createObjectURL(blob);
-          const a = document.createElement('a');
-          a.href = url;
-          a.download = 'index.html';
-          document.body.appendChild(a);
-          a.click();
-          document.body.removeChild(a);
-          URL.revokeObjectURL(url);
-        },
-
-        addNewPark() {
-          if (!this.newParkName.trim()) return;
-          const id = 'park_' + Date.now();
-          this.parks.push({
-            id,
-            type: this.newParkType,
-            name: this.newParkName.trim(),
-            mw: this.newParkMw.trim() || '0.0'
-          });
-          this.newParkName = '';
-          this.newParkMw = '';
-          this.saveState();
-        },
-
-        removePark(idx) {
-          this.parks.splice(idx, 1);
-          this.saveState();
-        },
-
-        resetDefaultParks() {
-          this.parks = JSON.parse(JSON.stringify(DEFAULT_PARKS));
-          this.saveState();
-        },
-
         resetChecklist() {
           this.checkedItems = {};
           this.checkTimestamps = {};
@@ -1698,7 +1507,6 @@
             const payload = {
               operatorName: this.operatorName,
               observations: this.observations,
-              parks: this.parks,
               checkedItems: this.checkedItems,
               checkTimestamps: this.checkTimestamps,
               parkModes: this.parkModes,
@@ -1719,23 +1527,14 @@
           } catch (e) {}
 
           try {
-            const defaultSig = JSON.stringify(DEFAULT_PARKS);
-            const savedSig = localStorage.getItem('scada_default_parks_sig_v1');
-            const baseFileUpdated = savedSig !== defaultSig;
-            if (baseFileUpdated) {
-              localStorage.setItem('scada_default_parks_sig_v1', defaultSig);
-            }
+            // Siempre mantenemos los valores de parques y MW fijos del código base
+            this.parks = JSON.parse(JSON.stringify(DEFAULT_PARKS));
 
             const raw = localStorage.getItem('scada_checklist_state_v3');
             if (!raw) return;
             const data = JSON.parse(raw);
             if (typeof data.operatorName === 'string') this.operatorName = data.operatorName;
             if (typeof data.observations === 'string') this.observations = data.observations;
-            if (!baseFileUpdated && Array.isArray(data.parks) && data.parks.length > 0) {
-              this.parks = data.parks;
-            } else {
-              this.parks = JSON.parse(JSON.stringify(DEFAULT_PARKS));
-            }
             if (data.checkedItems) this.checkedItems = data.checkedItems;
             if (data.checkTimestamps) this.checkTimestamps = data.checkTimestamps;
             if (data.parkModes) this.parkModes = data.parkModes;
